@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 fetch_xml/
 *.log
+*.mp4
