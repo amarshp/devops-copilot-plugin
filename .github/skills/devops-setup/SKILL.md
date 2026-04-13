@@ -22,8 +22,24 @@ pip install -r .github/requirements.txt
 
 ## Procedure
 
+### Step 0: Check Current Status (always run first)
+See what is already done before re-running anything:
+
+```powershell
+uv run python .github/skills/devops-setup/scripts/status_check.py
+```
+
+Flags:
+- `--no-menu` — print the status table and exit (no interactive prompt)
+- `--json` — machine-readable output for scripting
+- `--root PATH` — override the project root if auto-detection fails
+
+Steps already marked `[+]` are complete and should not be re-run.  
+Steps marked `[~]` (partial) or `[ ]` (missing) need attention.
+
 ### Step 1: Create / Update .env
-Run the interactive wizard. It tests every connection and writes `.env` to the project root.
+Run the interactive wizard. It tests every connection and writes `.env` to the project root.  
+Post-setup fetches (Jenkins XMLs, GitLab snapshot) are **automatically skipped** if their output already exists.
 
 ```powershell
 python .github/skills/devops-setup/scripts/setup_wizard.py

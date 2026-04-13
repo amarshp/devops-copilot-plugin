@@ -390,8 +390,10 @@ def main() -> int:
 
 def _run_post_setup_fetches(values: dict, env_path: "Path") -> None:
     """After a successful setup, automatically fetch Jenkins configs and GitLab snapshot.
-    On failure the user is prompted to retry or skip — the fetch loop does not advance
-    to the next item until the current one succeeds or is explicitly skipped.
+
+    Steps that already have output on disk are skipped automatically — rerunning
+    setup will never clobber work that is already done.  On failure the user is
+    prompted to retry or skip.
     """
     import subprocess
 
@@ -419,12 +421,19 @@ def _run_post_setup_fetches(values: dict, env_path: "Path") -> None:
     # --- Jenkins: fetch config XMLs ---
     jenkins_root = values.get("JENKINS_ROOT_URL", "").strip()
     if jenkins_root:
-        _header("Fetching Jenkins config XMLs…")
-        _run_with_retry(
-            "Jenkins config fetch",
-            [python, str(scripts_dir / "fetch_jenkins_configs.py")],
-            skip_hint="you can run fetch_jenkins_configs.py later",
-        )
+        graph_file = project_root / "fetch_xml" / "jenkins_graph_xml.json"
+        xml_dir    = project_root / "fetch_xml" / "config_xml"
+        xml_count  = sum(1 for _ in xml_dir.glob("*.xml")) if xml_dir.is_dir() else 0
+
+        if graph_file.exists() and xml_count > 0:
+            _ok(f"Jenkins config XMLs already fetched ({xml_count} files) — skipping.")
+        else:
+            _header("Fetching Jenkins config XMLs…")
+            _run_with_retry(
+                "Jenkins config fetch",
+                [python, str(scripts_dir / "fetch_jenkins_configs.py")],
+                skip_hint="you can run fetch_jenkins_configs.py later",
+            )
     else:
         _skip("JENKINS_ROOT_URL not set — skipping Jenkins config fetch.")
 
@@ -432,13 +441,17 @@ def _run_post_setup_fetches(values: dict, env_path: "Path") -> None:
     gitlab_token = values.get("GITLAB_TOKEN", "").strip()
     gitlab_project = values.get("GITLAB_PROJECT_ID", "").strip()
     if gitlab_token and gitlab_project:
-        _header("Fetching GitLab CI snapshot…")
-        _run_with_retry(
-            "GitLab config fetch",
-            [python, str(scripts_dir / "fetch_gitlab_config.py"),
-             "--output-dir", str(project_root / "gitlab_config")],
-            skip_hint="you can run fetch_gitlab_config.py later",
-        )
+        gitlab_cfg_dir = project_root / "gitlab_config"
+        if gitlab_cfg_dir.is_dir() and any(gitlab_cfg_dir.iterdir()):
+            _ok(f"GitLab CI snapshot already fetched ({sum(1 for _ in gitlab_cfg_dir.iterdir())} files) — skipping.")
+        else:
+            _header("Fetching GitLab CI snapshot…")
+            _run_with_retry(
+                "GitLab config fetch",
+                [python, str(scripts_dir / "fetch_gitlab_config.py"),
+                 "--output-dir", str(gitlab_cfg_dir)],
+                skip_hint="you can run fetch_gitlab_config.py later",
+            )
     else:
         _skip("GITLAB credentials not set — skipping GitLab config fetch.")
 

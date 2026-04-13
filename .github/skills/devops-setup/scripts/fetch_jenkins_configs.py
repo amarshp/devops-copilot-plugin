@@ -60,18 +60,58 @@ _RE_PROJECTS  = re.compile(r"<projects>\s*([^<]+?)\s*</projects>")
 _RE_BUILD_JOB = re.compile(r"""build\s+job\s*:\s*['"]([^'"]+)['"]""")
 
 
+def _is_in_disabled_block(xml_text: str, pos: int) -> bool:
+    """Return True if *pos* falls inside a job-config block marked disabled.
+
+    Jenkins never deletes old entries — it just adds ``<disableJob>true</disableJob>``
+    to the stale block.  We find the innermost ``<com.tikal…PhaseJobsConfig>`` (or
+    generic ``<jobsConfig>`` sibling block) that contains *pos* and check whether
+    it contains ``<disableJob>true</disableJob>``.
+
+    Falls back to False (treat as enabled) on any parse error.
+    """
+    # Walk backwards to find the opening tag of the containing job-config block.
+    # We look for the closest opening tag that could be a per-job config element.
+    _RE_OPEN  = re.compile(r"<(?:[a-zA-Z0-9_.:-]+\.)?PhaseJobsConfig[^>]*>", re.IGNORECASE)
+    _RE_CLOSE = re.compile(r"</(?:[a-zA-Z0-9_.:-]+\.)?PhaseJobsConfig\s*>", re.IGNORECASE)
+
+    # Find the last opening tag that starts before pos
+    block_start = -1
+    for m in _RE_OPEN.finditer(xml_text):
+        if m.start() < pos:
+            block_start = m.start()
+        else:
+            break
+
+    if block_start == -1:
+        return False  # no containing block found — assume enabled
+
+    # Find the first closing tag after block_start
+    close_m = _RE_CLOSE.search(xml_text, pos=block_start)
+    if not close_m:
+        return False
+
+    block_text = xml_text[block_start:close_m.end()]
+    return bool(re.search(r"<disableJob>\s*true\s*</disableJob>", block_text, re.IGNORECASE))
+
+
 def _extract_refs(xml_text: str) -> list[str]:
     """Return all job names referenced in a config.xml, in document order.
 
     Collects matches from all patterns together with their character positions,
     then sorts by position so the result reflects the order jobs appear in the
     XML — not the order the regex patterns are applied.
+
+    Disabled-block fix: entries inside a ``<disableJob>true</disableJob>`` block
+    are skipped entirely so that stale disabled entries left by Jenkins engineers
+    never displace the real enabled position of the same job name.
     """
     # (char_position, name) — gathered from all patterns before sorting
     all_matches: list[tuple[int, str]] = []
 
     for m in _RE_JOBNAME.finditer(xml_text):
-        all_matches.append((m.start(), m.group(1).strip()))
+        if not _is_in_disabled_block(xml_text, m.start()):
+            all_matches.append((m.start(), m.group(1).strip()))
 
     for m in _RE_PROJECTS.finditer(xml_text):
         for part in m.group(1).split(","):
