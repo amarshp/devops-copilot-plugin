@@ -40,6 +40,8 @@ Agent mode activated (hard permissions enforced)
 
 A prompt file does not call a skill file. The prompt describes the same workflow steps the skill would follow — they are kept in sync by convention, not by code.
 
+Commands and scripts shown under `skills/` are reference patterns. Copilot must still inspect the current repository and determine whether a repo-specific runnable asset exists before executing anything.
+
 ### Why Keep Both?
 
 | | Value |
@@ -67,8 +69,10 @@ When a user describes their goal, Copilot matches it to the right skill using th
 | fast pipeline, skip compilation, resume from phase | `pipeline-phase-resumer` skill → `phase-resumer` agent | Ask for reference build number if not provided |
 
 **Routing rules:**
+- Before routing, read `DEVOPS_PROJECT_CONTEXT.md` or create/update it if the use case is still unclear.
 - Match intent, not exact wording.
 - If intent is ambiguous between two pillars, ask one clarifying question before proceeding.
+- Do not treat `.github/skills/**/scripts/` commands as blindly runnable; verify the current repo first.
 - Skills, agents, hooks, and instructions all run in the background. The user never needs to name them.
 
 ---
@@ -76,6 +80,13 @@ When a user describes their goal, Copilot matches it to the right skill using th
 ## Journey Awareness
 
 Beyond intent routing, Copilot must also guide users who don't know the full process. This behaviour is defined in `copilot-instructions.md` and applies to every interaction.
+
+### Context intake gate
+Before any concrete workflow step, Copilot must:
+1. Read `DEVOPS_PROJECT_CONTEXT.md` if present.
+2. Ask clarifying questions if the file is missing or does not define the use case, platforms in scope, writable paths, and read-only boundaries.
+3. Create or update `DEVOPS_PROJECT_CONTEXT.md` in the repo root.
+4. Reuse that file as the first project-specific reference on later turns.
 
 ### Onboarding detection
 If the user's first message is vague or exploratory (e.g. "where do I start", "help me with CI/CD", "I want to move to GitLab"), do **not** jump into a skill. Instead:
@@ -152,6 +163,7 @@ Setup → Explore → Optimize → (optional) Fast resume
 
 | File / Folder | Created by | Contents |
 |---|---|---|
+| `DEVOPS_PROJECT_CONTEXT.md` | welcome flow / plugin runtime | Project-specific use case, scope, read-only paths, and execution guardrails |
 | `.env` | `setup_wizard.py` | Credentials and connection settings |
 | `fetch_xml/` | `fetch_jenkins_configs.py` | Job registry, config XMLs, pipeline tree |
 | `fetch_xml/build_logs/` | `fetch_jenkins_logs.py` | Jenkins build logs per job |
@@ -170,12 +182,15 @@ Setup → Explore → Optimize → (optional) Fast resume
 
 Every agent and prompt MUST stop immediately and ask the human when it encounters:
 
+- `DEVOPS_PROJECT_CONTEXT.md` is missing or incomplete and the requested action is not yet scoped
 - HTTP 401 / 403 from Jenkins or GitLab — do not retry or assume credentials are cached
 - A required `.env` key is missing or empty — list exactly which keys are needed
 - A Jenkins job referenced in a migration plan is not found on the server
 - A GitLab runner tag required by a job is not present in `runners.json`
 - Generated YAML fails lint after 3 retries — show errors, ask for clarification
 - A `needs:` reference points to a job not in the current pipeline scope
+- The next step would require editing `.github/` but the user did not explicitly ask to modify the plugin
+- Only a template script/command from `.github/skills/` is available and no repo-specific runnable equivalent has been identified
 - Any destructive action (file deletion, git reset, branch force-push)
 - Circular dependency detected in the job graph
 - QC report cannot be generated because Jenkins reference log is unavailable
@@ -195,7 +210,8 @@ Next step after you provide it: <what happens next>
 
 ## Core Rules
 
-- Start with `devops-setup` before running any other skill.
+- Start with `DEVOPS_PROJECT_CONTEXT.md` before choosing any workflow.
+- Use `devops-setup` before any skill that calls Jenkins or GitLab.
 - Validate YAML before any push or pipeline trigger.
 - Keep job boundaries isolated across files; do not duplicate downstream job implementations.
 - Preserve exact externally referenced job names for `needs` stability.
@@ -203,6 +219,8 @@ Next step after you provide it: <what happens next>
 - Treat runner inspection as read-only.
 - A successful pipeline run is not a QC pass. QC pass requires `QC_STATUS: SUCCESS` in the report.
 - Do not mask infrastructure blockers with `allow_failure` unless explicitly approved.
+- Treat `.github/` as read-only during normal plugin usage.
+- Treat skill scripts and commands as templates until the repo proves they are the correct runnable assets.
 
 ---
 

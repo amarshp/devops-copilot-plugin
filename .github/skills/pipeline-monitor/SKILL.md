@@ -8,6 +8,13 @@ argument-hint: 'pipeline id or "latest" — describe monitoring goal'
 
 Consolidated tooling for tracking GitLab pipeline execution. Four scripts replace the 10+ `_check_*`, `_poll_*`, `_watch_*`, and `_download_*` scripts. No more hunting for the right script — use this skill.
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the monitoring goal, GitLab project in scope, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom monitoring automation, create or adapt project-local scripts outside `.github/`.
+
 ## When to Use
 - "What is the status of pipeline `<id>`?"
 - "Which jobs are failing in the latest pipeline?"
@@ -17,9 +24,9 @@ Consolidated tooling for tracking GitLab pipeline execution. Four scripts replac
 
 ## Prerequisites
 - `GITLAB_TOKEN`, `GITLAB_PROJECT_ID`, `GITLAB_BRANCH` set in `.env`
-- `pip install -r .github/requirements.txt`
+- Reference environment setup pattern: `pip install -r .github/requirements.txt`
 
-## Commands
+## Reference Commands
 
 ### Quick Status Check
 ```powershell
@@ -79,3 +86,5 @@ python .github/skills/pipeline-monitor/scripts/watch.py --latest --alerts-file m
 - HTTP 401/403 → check `GITLAB_TOKEN` permissions (needs `api` or `read_api` scope)
 - Pipeline not found → verify `GITLAB_PROJECT_ID` and pipeline ID
 - Log download returns empty → job may not have a trace yet (too early or just created)
+
+Do not assume these exact commands are correct for every repository. Verify the repo layout and monitoring entry points first.

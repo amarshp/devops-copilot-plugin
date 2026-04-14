@@ -8,6 +8,13 @@ argument-hint: 'job name plus Jenkins/GitLab log evidence paths'
 
 Validate that migrated GitLab CI jobs reproduce the equivalent Jenkins behavior. Uses LLM comparison of execution logs; a green GitLab pipeline is NOT a QC pass without log evidence.
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the QC goal, evidence paths, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom QC automation, create or adapt project-local scripts outside `.github/`.
+
 ## When to Use
 - "Run QC on `<job_name>`"
 - "Compare Jenkins log vs GitLab log for `<job>`"
@@ -19,6 +26,8 @@ Validate that migrated GitLab CI jobs reproduce the equivalent Jenkins behavior.
 - `COPILOT_TOKEN` set in `.env` (LLM comparison)
 - Jenkins log file available locally
 - GitLab log downloaded (use pipeline-monitor skill or `qc_bulk_download.py`)
+
+Treat the commands below as reference patterns. Verify that the current repo uses these tools and paths before executing them unchanged.
 
 ## Procedure
 

@@ -46,7 +46,7 @@ class CopilotClient:
         token = (getattr(_cfg, "COPILOT_TOKEN", None) or os.environ.get("COPILOT_TOKEN", ""))
         if not token:
             raise RuntimeError(
-                "COPILOT_TOKEN not set. Add it to your .env file: COPILOT_TOKEN=ghp_..."
+                "COPILOT_TOKEN not set. Add it to your .env file: COPILOT_TOKEN=<gho_or_ghp_token>"
             )
         self.token = token
         self.model = model

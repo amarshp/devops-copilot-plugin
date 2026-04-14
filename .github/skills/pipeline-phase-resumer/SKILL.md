@@ -6,6 +6,13 @@ argument-hint: 'Phase to resume from (or say "discover" to explore available pha
 
 # Pipeline Phase Resumer
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the phase-resume goal, project in scope, writable paths, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom resume automation, create or adapt project-local scripts outside `.github/`.
+
 ## What It Does
 
 Creates a `fast_<phase>/` pipeline variant that:
@@ -36,9 +43,19 @@ Update all three together whenever you want to point at a different reference bu
 
 ---
 
+## Prerequisites
+
+- A persistent runner workspace for the jobs you plan to resume
+- A reference pipeline that completed through the phase you want to skip past
+- `DEVOPS_PROJECT_CONTEXT.md` updated with the project, runner, repo prefix, and resume scope
+- Setup complete for any required GitLab access, tokens, and project identifiers
+- A verified push/run path outside `.github/` for pipeline execution helpers such as `push_dummy.py`
+
+---
+
 ## CLI Reference
 
-All commands are under `run.py`. Use `uv run --with pyyaml` as the interpreter.
+All commands below are reference patterns under `run.py`. Use them only if the current repo proves this is the correct runnable entry point.
 
 ### `discover` — Scan any pipeline to see its phases (no prior knowledge needed)
 
@@ -130,6 +147,8 @@ uv run --with requests gitlab_pipeline/_qc_compare.py <RESUME_PIPELINE_ID> <REF_
 ## Procedure (agent-guided)
 
 The `phase-resumer` agent walks you through this interactively. For manual runs:
+
+Treat the commands below as reference patterns. Verify the repo layout and available local tooling before executing them unchanged.
 
 ### Step 0 — Gather inputs
 
@@ -244,175 +263,4 @@ Use `discover` to identify the correct gate jobs and stage file list.
 
 The `fast_test` pipeline in `migrated_yamls/fast_test/` is the canonical real-world example.
 It saved **56 minutes per run** (100 min → 44 min, 56% reduction).
-See `gitlab_pipeline/fast_test_share/FAST_TEST_RUNBOOK.md` for the full runbook.
-
-
-# Pipeline Phase Resumer
-
-## What It Does
-
-Creates a `fast_<phase>/` pipeline variant that:
-
-1. Keeps the mandatory gate jobs (NET USE, env-setup, compute-version, compile-setup, LocalMirror)
-2. Adds lightweight **bootstrap validator** jobs that confirm the reference workspace is intact on disk
-3. Skips every phase **before** the target phase by replacing real compile-gate `needs:` with bootstrap validators
-4. Runs the target phase (and all phases after it) exactly as the original pipeline would
-
-The reference workspace is identified by three variables hardcoded in the generated `.gitlab-ci.yml`:
-
-```yaml
-FAST_RESUME_REFERENCE_BUILD_NUMBER:  "12"
-FAST_RESUME_REFERENCE_BUILD_VERSION: "2026.3.12.0"
-FAST_RESUME_REFERENCE_DESTDIR:       "E:/FT/QTP/win32_release/2026.3.12.0"
-```
-
-Update all three together whenever you want to point at a new reference build.
-
----
-
-## When to Use
-
-- You have a full pipeline that ran successfully up to (or past) a phase boundary
-- The persistent EC2 runner still holds the compiled workspace from that run
-- You want to iterate on a late-stage job (e.g. Addins, Setup, Publish) without paying the full compile cost
-- You want to create a dedicated "mini pipeline" that teammates can trigger to test just that phase
-
-## Prerequisites
-
-- Persistent runner workspace: same physical machine for all jobs (`ec2-runner` tag)
-- A reference pipeline that completed through the phase you want to skip past
-- `devops-setup` complete — `.env` with `GITLAB_TOKEN` / `GITLAB_PROJECT_ID` present
-- `push_dummy.py` available (from `gitlab_pipeline/`)
-
----
-
-## Procedure
-
-### Step 1 — Identify the phase boundary
-
-Find the last **BomCheck** (or equivalent gate) job that must succeed before your target phase starts. This is the job whose `needs:` your bootstrap will replace.
-
-```bash
-python .github/skills/pipeline-phase-resumer/run.py analyze <pipeline_dir> --phase <phase_name>
-```
-
-Outputs:
-- List of jobs that are true gates for the target phase
-- List of dotenv artifact producers that must be preserved
-- Suggested bootstrap job name(s)
-
-### Step 2 — Generate the resumer pipeline
-
-```bash
-python .github/skills/pipeline-phase-resumer/run.py generate \
-    --source-dir migrated_yamls/uft_build \
-    --output-dir migrated_yamls/fast_<phase> \
-    --phase <phase_name> \
-    --ref-build-number 12 \
-    --ref-build-version 2026.3.12.0 \
-    --ref-destdir "E:/FT/QTP/win32_release/2026.3.12.0"
-```
-
-What is generated:
-- `fast_<phase>/.gitlab-ci.yml` — root pipeline, reuse vars set, only target-phase includes
-- `fast_<phase>/ci/stages/fast-resume-bootstrap.yml` — validates cached workspace paths
-- All stage files copied verbatim from source; only the gate-boundary files are patched
-
-### Step 3 — Lint
-
-```bash
-python .github/skills/pipeline-phase-resumer/run.py lint --pipeline-dir migrated_yamls/fast_<phase>
-```
-
-### Step 4 — Push and run
-
-```powershell
-$env:GITLAB_BRANCH = 'fast-resume-<phase>-<date>'
-uv run --with python-gitlab --with requests --with pyyaml \
-  gitlab_pipeline/push_dummy.py \
-  --source-dir migrated_yamls/fast_<phase> \
-  --repo-prefix uft_build \
-  --logs-dir pipeline_logs/fast_<phase>_run_<date> \
-  -m "fast resume: <phase>"
-```
-
-### Step 5 — QC
-
-```powershell
-$env:PYTHONUTF8 = 1
-uv run --with requests gitlab_pipeline/_qc_compare.py <RESUME_PIPELINE_ID> <REF_PIPELINE_ID>
-```
-
----
-
-## Key Concepts
-
-### Bootstrap validator job
-
-A lightweight job (a few `if exist` checks) that stands in for every real compilation gate.
-It validates that the reference workspace paths exist on disk — it does **not** recompile anything.
-Its `stage:` is set to the same GitLab CI stage as the gate it replaces, so the DAG ordering is preserved.
-
-### Cross-phase `needs:` patching
-
-Any job in the target phase that had `needs: [SomeCompileGate.BomCheck]` is patched to:
-
-```yaml
-needs:
-  - job: fast-resume-<gate>-bootstrap
-    artifacts: false
-    optional: true
-```
-
-All other `needs:` within the target phase remain unchanged.
-
-### Reuse variables
-
-The three `FAST_RESUME_REFERENCE_*` variables in `.gitlab-ci.yml` are read by the patched
-`uft-build-compute-version.yml` to short-circuit the build-number logic and emit the correct
-`DestDir` without querying Jenkins or running a full build.
-
-### What can and cannot be skipped
-
-| Safe to skip | Not safe to skip |
-|---|---|
-| Source provisioning (MultiGit, Git.Src.Provision) | INFRA.Net.Use — network drives don't persist |
-| All compile phases before the target phase | uft-build-env-setup — dotenv needed by all jobs |
-| BuildNumber.Creator — replaced by reference vars | uft-build-compute-version — emits DestDir |
-| Code-signing gates (always skipped in reference) | INFRA.Product.AllDependencies.LocalMirror — product_srvroot_envs.txt |
-
-### Constraints
-
-- EC2 runner is **read-only** within the resumed pipeline — do not add steps that permanently mutate the workspace between runs
-- Do not set `INFRA.Delete.Workspace` to run — it will wipe the reference workspace
-- The bootstrap job must run on the same `ec2-runner` tag as all other jobs
-
----
-
-## Phase Registry
-
-Phases this skill knows about (add more as migration expands):
-
-| Phase name | First job in phase | Gate jobs replaced by bootstrap |
-|---|---|---|
-| `addins` | `UFT.Compile.Addins.QTCustSupport.ImportSDK` | `FrontEnd.Infra.BomCheck`, `FrontEnd.ReplayRecoveryUI.BomCheck`, `FrontEnd.ObjectRepository.BomCheck` |
-| `setup` | `UFT.For.ALM.And.BTPRpt` (ImportSDK) | All Addins BomCheck gates, `UFT.Compile.SetupUtils.BomCheck` |
-
----
-
-## File Layout
-
-```
-.github/skills/pipeline-phase-resumer/
-  SKILL.md            ← this file
-  run.py              ← CLI entry point
-  scripts/
-    __init__.py
-    resumer.py        ← core logic: analyze, generate, lint
-```
-
-## Reference: fast_test (Addins phase)
-
-The `fast_test` pipeline in `migrated_yamls/fast_test/` is the canonical real-world example
-of this skill applied to the Addins phase. It saved **56 minutes per run** (100 min → 44 min).
 See `gitlab_pipeline/fast_test_share/FAST_TEST_RUNBOOK.md` for the full runbook.

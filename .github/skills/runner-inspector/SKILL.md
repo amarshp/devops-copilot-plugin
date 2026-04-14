@@ -8,6 +8,13 @@ argument-hint: 'describe the path/tool/env to inspect'
 
 Read-only remote inspection of CI build runners. Verify actual machine state before changing YAML to avoid guessing. Supports both Windows (WinRM) and Linux (SSH) runners — auto-detected from `RUNNER_PROTOCOL` in `.env`.
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the inspection goal, runner scope, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom inspection automation, create or adapt project-local scripts outside `.github/`.
+
 ## When to Use
 - GitLab job fails with "path not found" or "tool not found"
 - Environment variable missing or has wrong value
@@ -17,11 +24,13 @@ Read-only remote inspection of CI build runners. Verify actual machine state bef
 
 ## Prerequisites
 - `RUNNER_HOST`, `RUNNER_USER`, `RUNNER_PASS`, `RUNNER_PROTOCOL` set in `.env`
-- Install dependencies once with `pip install -r .github/requirements.txt`
+- Reference environment setup pattern: `pip install -r .github/requirements.txt`
 
 ## Commands
 
 All commands use the unified `inspector.py` which auto-selects WinRM or SSH:
+
+Treat these as reference commands. Verify that the current repo uses this runner-inspection entry point before executing it unchanged.
 
 ```powershell
 # Check if a path exists

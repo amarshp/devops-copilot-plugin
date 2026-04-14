@@ -6,6 +6,13 @@ argument-hint: 'Path to pipeline directory or describe the decoupling task'
 
 # GitLab CI/CD Pipeline Decoupler
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the optimization goal, pipeline paths in scope, writable paths, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom optimization automation, create or adapt project-local scripts outside `.github/`.
+
 ## When to Use
 - User asks to analyze a GitLab CI/CD pipeline's dependency structure
 - User wants to decouple or split a monolithic pipeline into phases
@@ -15,12 +22,14 @@ argument-hint: 'Path to pipeline directory or describe the decoupling task'
 - User is migrating from Jenkins and wants to optimize the GitLab pipeline structure
 
 ## Prerequisites
-- Install dependencies with `pip install -r .github/requirements.txt`
+- Reference environment setup pattern: `pip install -r .github/requirements.txt`
 - Pipeline must have `.gitlab-ci.yml` with `include: local:` structure
 
 ## Setup (first time per project)
 Copy the entire `.github/` folder to the target project root. The tool is self-contained:
 ```
+
+After the plugin is installed, treat `.github/` as plugin source code. Do not edit it during normal plugin usage unless the user explicitly asked to modify the plugin itself.
 .github/
 ├── agents/pipeline-optimizer.agent.md   ← Use for optimization and decoupling guidance
 └── skills/pipeline-decoupler/
@@ -36,6 +45,8 @@ Copy the entire `.github/` folder to the target project root. The tool is self-c
 
 ### Step 1: Analyze the Pipeline
 Run the analyzer to understand the dependency graph, bottlenecks, and natural phase boundaries.
+
+Treat this as a reference command. Verify that the current repo uses this entry point before executing it unchanged.
 
 ```bash
 python .github/skills/pipeline-decoupler/run.py analyze <pipeline_dir> --json
@@ -60,6 +71,8 @@ Examine the identified phases and validate they make sense:
 
 ### Step 3: Generate Decoupled Pipeline
 Run the decoupler to produce modified pipeline files.
+
+Treat these as reference commands. If the repo has adapted decoupling tooling, prefer that verified local path.
 
 ```bash
 python .github/skills/pipeline-decoupler/run.py decouple <pipeline_dir> --output-dir <output>

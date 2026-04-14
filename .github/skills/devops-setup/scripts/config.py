@@ -28,7 +28,7 @@ Required .env keys:
     RUNNER_PROTOCOL         "winrm" or "ssh"
 
     # LLM
-    COPILOT_TOKEN           GitHub Copilot API token (for LLM calls)
+    COPILOT_TOKEN           GitHub Copilot / GitHub OAuth access token (for LLM calls)
     COPILOT_MODEL           Model name (default: claude-sonnet-4.6)
     COPILOT_CHAT_URL        Chat completions endpoint URL
 

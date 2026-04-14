@@ -230,7 +230,7 @@ def run_wizard(env_path: Path) -> dict[str, str]:
 
     # LLM
     _header("4 / 4 — GitHub Copilot LLM")
-    values["COPILOT_TOKEN"] = _ask("Copilot API token (ghp_...)", _e("COPILOT_TOKEN"), secret=True)
+    values["COPILOT_TOKEN"] = _ask("Copilot API token (gho_... or ghp_...)", _e("COPILOT_TOKEN"), secret=True)
     values["COPILOT_MODEL"] = _ask("Model name", _e("COPILOT_MODEL") or "gpt-4.1")
     values["COPILOT_CHAT_URL"] = _ask(
         "Chat completions URL",

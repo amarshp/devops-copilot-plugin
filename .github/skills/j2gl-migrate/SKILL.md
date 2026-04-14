@@ -8,6 +8,13 @@ argument-hint: 'target Jenkins job name or migration scope'
 
 End-to-end workflow for converting Jenkins pipeline jobs to GitLab CI YAML. Uses LLM (GitHub Copilot API) for intelligent conversion with structure validation and retry.
 
+## Project Context And Execution Model
+- Read `DEVOPS_PROJECT_CONTEXT.md` before running this skill.
+- If the file is missing or does not define the migration goal, source/target systems, writable paths, and read-only boundaries, ask clarifying questions first and update it.
+- Keep `.github/` read-only during normal plugin usage unless the user explicitly asked to modify the plugin itself.
+- Commands and scripts under `.github/skills/` are reference implementations and templates. Only run them if this repo proves they are the correct runnable assets here.
+- If the repo needs custom migration automation, create or adapt project-local scripts outside `.github/`.
+
 ## When to Use
 - "Migrate `<JobName>` to GitLab"
 - "Generate GitLab YAML for the Jenkins pipeline"
@@ -18,13 +25,15 @@ End-to-end workflow for converting Jenkins pipeline jobs to GitLab CI YAML. Uses
 
 ## Prerequisites
 - [devops-setup](../devops-setup/SKILL.md) complete — `.env` present, `jenkins_graph_xml.json` available
-- `pip install -r .github/requirements.txt`
+- Reference environment setup pattern: `pip install -r .github/requirements.txt`
 - `COPILOT_TOKEN` set in `.env`
 
 ## Procedure
 
 ### Step 1: Build Stage Dictionary
 Parse Jenkins XML configs into a metadata index that maps jobs to stages:
+
+Treat this as a reference command. Verify that the repo uses these paths and assets before executing it unchanged.
 
 ```powershell
 python .github/skills/j2gl-migrate/scripts/build_stage_dict.py \
@@ -35,6 +44,8 @@ python .github/skills/j2gl-migrate/scripts/build_stage_dict.py \
 
 ### Step 2: Convert a Single Job
 Convert one Jenkins job to GitLab YAML using LLM:
+
+Treat this as a reference command. If the repo has adapted conversion tooling, prefer that verified local path.
 
 ```powershell
 python .github/skills/j2gl-migrate/scripts/convert_job.py "<JOB_NAME>" \
@@ -79,6 +90,8 @@ python .github/skills/j2gl-migrate/scripts/push_and_trigger.py \
 ```
 
 The `-m` message is required.
+
+Do not assume these exact commands are correct for every repository. Verify the repo layout and migration entry points first.
 
 ## Stop Conditions
 - **401/403 from GitLab** → check `GITLAB_TOKEN` and project permissions

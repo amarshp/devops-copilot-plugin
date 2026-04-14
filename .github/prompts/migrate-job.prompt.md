@@ -5,6 +5,14 @@ argument-hint: exact Jenkins job name
 agent: "agent"
 ---
 
+Before starting migration work:
+
+1. Read `DEVOPS_PROJECT_CONTEXT.md` from the repository root.
+2. If it is missing or does not clearly define the migration goal, Jenkins/GitLab scope, writable paths, and read-only boundaries, ask focused clarifying questions first.
+3. Create or update `DEVOPS_PROJECT_CONTEXT.md` with the clarified migration scope before proceeding.
+4. Keep `.github/` read-only unless the user explicitly asked to modify the plugin itself.
+5. Treat scripts and commands documented under `.github/skills/` as reference templates; only run them if the current repo proves they are the correct runnable assets here.
+
 Migrate this Jenkins job: ${input:jobName:Exact Jenkins job name}
 
 Optional context:
@@ -23,3 +31,5 @@ Required behavior:
 3. If runner path/tool/env is involved, inspect runner first.
 4. If pushing, include a specific -m change summary.
 5. End with next QC action.
+
+If the exact Jenkins job, XML source, stage mapping, or output location is ambiguous, stop and ask before writing YAML.
