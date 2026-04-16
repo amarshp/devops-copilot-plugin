@@ -1,0 +1,48 @@
+# fast-resume bootstrap validators
+# These jobs replace real compilation gates.
+# They only verify the reference workspace is intact on disk.
+# They do NOT compile anything.
+
+fast-resume-setuputils-bootstrap:
+  stage: setup-alm-btp
+  # Replaces: UFT.Compile.SetupUtils.BomCheck
+  tags:
+    - windows
+  resource_group: ec2-shared-host
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      $ErrorActionPreference = 'Stop'
+      $refDir = ($env:FAST_RESUME_REFERENCE_DESTDIR -replace '/', '\').TrimEnd('\')
+      if ([string]::IsNullOrWhiteSpace($refDir)) {
+        Write-Error 'FAST_RESUME_REFERENCE_DESTDIR is not set'; exit 1
+      }
+      Write-Host "fast-resume bootstrap: validating $($env:FAST_RESUME_REFERENCE_BUILD_VERSION) at $refDir"
+      if (-not (Test-Path $refDir)) {
+        Write-Error "Reference workspace not found: $refDir"; exit 1
+      }
+      @('bin', 'build', 'include', 'SetupBuilder') | ForEach-Object {
+        $p = Join-Path $refDir $_
+        if (-not (Test-Path $p)) { Write-Error "Missing: $p"; exit 1 }
+        Write-Host "OK: $_"
+      }
+      Write-Host 'Bootstrap OK: reference workspace is intact'
+
+      # LeanFT / OIC prerequisite check (migration gap: Jenkins UFT.Setup.Generation
+      # triggers UFT.Launch.LeanFT.Build which publishes OIC content; that chain is
+      # not yet wired into fast_test_setup).  Warn only — UFTSetup has allow_failure.
+      $oicPath = 'P:\FT\LeanFT\win32_release\LeanFT_2026_3\ui-launcher\OIC-win32-ia32'
+      if (-not (Test-Path $oicPath)) {
+        Write-Warning "LeanFT OIC content NOT found at $oicPath"
+        Write-Warning "UFT.Prepare.MLUSetup.UFTSetup will fail (PrepareUFTSetup_IHP2 needs UFT_oic)."
+        Write-Warning "To fix: run the Jenkins LeanFT build (CodedFT.2026.3.RUN.Nightly) or copy OIC content manually."
+      } else {
+        Write-Host "OK: LeanFT OIC content present at $oicPath"
+      }
+
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
