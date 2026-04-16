@@ -1,0 +1,64 @@
+# UFT.Prepare.MLUSetup - Prepare MLU content (3 serialized MSBuild prepare jobs)
+# Jenkins: UFT.Prepare.All.MLU.Setup (MultiJobProject) - "04 - Prepare MLU"
+#   Phase "Prepare All Setups" (PARALLEL in Jenkins, SERIAL here - single EC2 runner):
+#     UFT.Prepare.RepView.Setup   -> MSBTarget=PrepareUFTRepViewSetup_IHP2
+#     UFT.Prepare.QCPlugin.Setup  -> MSBTarget=PrepareQCPluginSetup_IHP2
+#     UFT.Prepare.UFT.Setup       -> MSBTarget=PrepareUFTSetup_IHP2
+#   All use MSBProj=build\create_MLU_Content.proj
+# ForceLabel=false: use build-number workspace (U:\2026.3.0.120) not label workspace (UFT_2026_3)
+
+UFT.Prepare.MLUSetup.RepView:
+  # Jenkins: killPhaseOnJobResultCondition=NEVER — pipeline continues even if this fails
+  allow_failure: true
+  extends: .uft-msbuild-template
+  stage: setup-prepare-mlu
+  variables:
+    MSBProj: 'build\create_MLU_Content.proj'
+    MSBTarget: "PrepareUFTRepViewSetup_IHP2"
+    JobName: "UFT.Prepare.MLUSetup.RepView"
+    MSBProj_For_Consumption: 'build\create_MLU_Content.proj'
+    ForceLabel: "false"
+  needs:
+    - job: UFT.Setup.ALMAndBTP
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.MLUSetup.QCPlugin:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-mlu
+  variables:
+    MSBProj: 'build\create_MLU_Content.proj'
+    MSBTarget: "PrepareQCPluginSetup_IHP2"
+    JobName: "UFT.Prepare.MLUSetup.QCPlugin"
+    MSBProj_For_Consumption: 'build\create_MLU_Content.proj'
+    ForceLabel: "false"
+  needs:
+    - job: UFT.Prepare.MLUSetup.RepView
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.MLUSetup.UFTSetup:
+  # Jenkins: killPhaseOnJobResultCondition=NEVER — PrepareTargetDir logs errors but pipeline continues
+  allow_failure: true
+  extends: .uft-msbuild-template
+  stage: setup-prepare-mlu
+  variables:
+    MSBProj: 'build\create_MLU_Content.proj'
+    MSBTarget: "PrepareUFTSetup_IHP2"
+    JobName: "UFT.Prepare.MLUSetup.UFTSetup"
+    MSBProj_For_Consumption: 'build\create_MLU_Content.proj'
+    ForceLabel: "false"
+  needs:
+    - job: UFT.Prepare.MLUSetup.QCPlugin
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
