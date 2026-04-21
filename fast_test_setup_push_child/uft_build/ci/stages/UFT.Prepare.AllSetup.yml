@@ -1,0 +1,113 @@
+# UFT.Prepare.AllSetup — Prepare all installer MSIs (6 parallel MSBuild prepare jobs)
+# Jenkins: UFT.Prepare.AllSetup (MultiJobProject) — "06 - Prepare All Setups"
+#   Phase "Prepare All Setups" (PARALLEL, 6 jobs):
+#     UFT.Prepare.RepView.Setup       → PrepareUFTRepViewSetup_IHP2
+#     UFT.Prepare.QCPlugin.Setup      → PrepareQCPluginSetup_IHP2
+#     UFT.Prepare.ExtAccTool.Setup    → PrepareExtAccToolSetup_IHP2
+#     UFT.Prepare.UFT.Setup           → PrepareUFTSetup_IHP2
+#     UFT.Prepare.WebAddin.Setup      → PrepareWeb2AddinSetup_IHP2
+#     UFT.Prepare.NetExtensibility    → PrepareDotNetExt_IHP2 (conditional on NetExtensibility=true)
+#   All use MSBProj=build\create_msi.proj
+
+UFT.Prepare.AllSetup.RepView:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareUFTRepViewSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.RepView"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.QCPlugin:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareQCPluginSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.QCPlugin"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.ExtAccTool:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareExtAccToolSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.ExtAccTool"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.UFTSetup:
+  allow_failure: false
+  timeout: 3h
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareUFTSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.UFTSetup"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.WebAddin:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareWeb2AddinSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.WebAddin"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.NetExtensibility:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareDotNetExt_IHP2"
+    JobName: "UFT.Prepare.AllSetup.NetExtensibility"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: UFT.Create.MLU
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

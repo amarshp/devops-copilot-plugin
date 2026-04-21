@@ -1,0 +1,47 @@
+stages:
+  - build-prepare
+  - build-number
+  - build-get-source-prereq
+  - build-get-source
+  - build-get-source-final
+
+.infra-net-use-defaults:
+  tags:
+    - windows
+  timeout: 30 minutes
+
+INFRA.Net.Use:
+  extends: .infra-net-use-defaults
+  stage: build-prepare
+  variables:
+    Workspace_Home: "INFRA.Net-Use"
+    Node: ""
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      Write-Host "=============================="
+      Write-Host "      Flushing the DNS"
+      Write-Host "=============================="
+      ipconfig /flushdns
+
+      Write-Host "=============================="
+      Write-Host "  Removing existing connections"
+      Write-Host "=============================="
+      cmd /c "NET USE * /delete /y"
+
+      $STORAGE_WIN_SERVER = "\\rubicon.cross.admlabs.aws.swinfra.net\NAS_NTPP"
+      $PRODUCTS_STORAGE_WIN = "$STORAGE_WIN_SERVER\products"
+
+      Write-Host "================================"
+      Write-Host "  Connecting to file repositories"
+      Write-Host "================================"
+
+      if (-not (Test-Path "P:\")) { cmd /c "net use P: $PRODUCTS_STORAGE_WIN /u:_ft_auto /persistent:no" }
+      if (-not (Test-Path "I:\")) { cmd /c "net use I: $STORAGE_WIN_SERVER\main_ns\tools\aurora\tools /u:_ft_auto /persistent:no" }
+      if (-not (Test-Path "Y:\")) { cmd /c "net use Y: $STORAGE_WIN_SERVER\main_ns\repositories /u:_ft_auto /persistent:no" }
+      if (-not (Test-Path "U:\")) { cmd /c "net use U: $PRODUCTS_STORAGE_WIN\FT\QTP\win32_release /u:_ft_auto /persistent:no" }
+
+      Write-Host "================================"
+      Write-Host "  Checking connectivity"
+      Write-Host "================================"
+      net use

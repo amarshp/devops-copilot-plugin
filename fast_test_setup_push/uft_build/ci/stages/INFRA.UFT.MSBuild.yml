@@ -1,0 +1,247 @@
+# INFRA.UFT.MSBuild template for uft_build pipeline
+# Callers: extend .uft-msbuild-template and override MSBProj / MSBTarget via variables
+#
+# Adapted from ci/stages/INFRA.UFT.MSBuild.yml (agents pipeline).
+# DO NOT modify the agents version — this is a uft_build-specific copy.
+
+.uft-msbuild-template:
+  tags:
+    - windows
+  timeout: 350 minutes
+  variables:
+    GIT_STRATEGY: none
+    # Caller MUST set MSBProj and MSBTarget
+    MSBProj: ""
+    MSBTarget: ""
+    ForceLabel: "true"
+    skipImportLocalComponents: "True"
+    MSBuildProp_TrackFileAccess: "false"
+    MSBuildLog_Verbosity: "minimal"
+    MaxCPUCount: "1"
+    Product_Server_Root_Envs_File: "product_srvroot_envs.txt"
+    MSBProj_For_Consumption: ""
+    AddProperties: ""
+  script:
+    - |
+      # Set WORKSPACE
+      # Normalize forward slashes to backslashes — the dotenv artifact uses /
+      # to avoid GitLab escape-sequence bugs, but Windows batch files (xcopy etc.)
+      # interpret / as command-line switches.
+      $env:Workspace_Home = $env:Workspace_Home -replace '/', '\'
+      $env:WORKSPACE = $env:Workspace_Home
+      Set-Location $env:WORKSPACE
+      Write-Host "WORKSPACE=$env:WORKSPACE"
+      Write-Host "MSBProj=$env:MSBProj"
+      Write-Host "MSBTarget=$env:MSBTarget"
+
+      if ([string]::IsNullOrEmpty($env:MSBProj)) {
+        Write-Error "MSBProj is not set"; exit 1
+      }
+      if ([string]::IsNullOrEmpty($env:MSBTarget)) {
+        Write-Error "MSBTarget is not set"; exit 1
+      }
+    - |
+      # Resolve MSBTargetReal
+      if ($env:MSBTarget -match '^Build') {
+          $env:MSBTargetReal = 'Build'
+      } else {
+          $env:MSBTargetReal = $env:MSBTarget
+      }
+    - |
+      # Conditionally prepend TrackFileAccess
+      if ($env:MSBuildProp_TrackFileAccess -eq 'true') {
+          $env:AddProperties = "/p:TrackFileAccess=True $env:AddProperties"
+      }
+    - |
+      # Core env vars (EnvInject block 1)
+      $env:BUILD_LOGGER_PATH   = "$env:Workspace_Home\BatchFiles\Utilities"
+      $env:QTP_SDK_BATCH        = "$env:Workspace_Home\BuildUtils\ExportSDK"
+      $env:QTP_OUTPUT_DIR       = "$env:Workspace_Home\QTP\QTP_OUTPUT_DIR"
+      $env:QTP_INTERMEDIATE     = "$env:Workspace_Home\QTP\Temp"
+      $env:QTP_SOURCE_ROOT      = "$env:Workspace_Home\QTP"
+      $env:MAJOR_VER            = $env:BuildMajorVersion
+      $env:MINOR_VER            = $env:BuildMinorVersion
+      $env:XRVER                = $env:BuildNumber
+      $env:PATCH_VER            = $env:BuildPostfix
+      $env:CONFIG               = $env:Configuration
+      $env:FLEX_HOME_4_14_1     = "$env:UFT_Tools\flex_sdk_4.14.1"
+      $env:FLEX_HOME            = "$env:UFT_Tools\Adobe\flex_sdk_4.5.0"
+      $env:FLEX_HOME_3_6_0      = "$env:UFT_Tools\Adobe\flex_sdk_3.6.0"
+      $env:AIR_HOME_3_6_0       = $env:FLEX_HOME_3_6_0
+      $env:FLEX_HOME_4_9_1      = "$env:UFT_Tools\Adobe\flex_sdk_4.9.1"
+      $env:FLEX_HOME_4_12_1     = "$env:UFT_Tools\Adobe\flex_sdk_4.12.1"
+      $env:PLAYERGLOBAL_HOME    = "$env:FLEX_HOME_4_14_1\frameworks\libs\player"
+      $env:PYTHON_HOME          = "$env:UFT_Tools\Python27"
+      $env:MOZILA_IFSUD_BUILD   = 'E:\nexusDownloadFolder\FF'
+      $env:MOZILA_IFSU_BUILD    = 'E:\nexusDownloadFolder\FF'
+      $env:MOZ_IFS_BUILD        = 'E:\nexusDownloadFolder\FF'
+        $referencePaths = @(
+          "$env:Workspace_Home\QTP\QTP_OUTPUT_DIR\bin"
+          "$env:Workspace_Home\QTP\QTP_OUTPUT_DIR\include\netimports"
+          "$env:Workspace_Home\QTP\QTP_OUTPUT_DIR\ifs\Add-ins"
+        )
+        $env:ReferencePath        = ($referencePaths | Select-Object -Unique) -join ';'
+      $env:QTDIR                = "$env:PRODUCTS_STORAGE_WIN\TPS\TPS\Latest\Qt\Qt-4.6.3\win32\"
+      $env:QT5DIR               = "$env:PRODUCTS_STORAGE_WIN\TPS\TPS\Latest\Qt\Qt-5.3.2\win32\"
+      $env:Path                 = "C:\Program Files (x86)\MSBuild\12.0\bin\;$env:UFT_Tools\Python27\;$env:Path"
+    - |
+      # Compute FULL_VER
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $env:SVCPACK_VER = ''
+          $env:FULL_VER    = "$env:MAJOR_VER.$env:MINOR_VER.$env:XRVER.$env:PATCH_VER"
+      } else {
+          $env:SVCPACK_VER = $env:SvcpackVersion
+          $env:FULL_VER    = "$env:MAJOR_VER.$env:MINOR_VER.$env:SVCPACK_VER.$env:XRVER"
+      }
+    - |
+      # Display name equivalent
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $buildversion = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:BuildNumber.$env:BuildPostfix"
+      } else {
+          $buildversion = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:SvcpackVersion.$env:BuildNumber"
+      }
+      Write-Host "DisplayName: $buildversion | $env:Compilation_Configuration | $env:BuildLabel | $env:MSBProj | $env:MSBTarget"
+    - |
+      # Load Product_Server_Root_Envs_File if flag file exists
+      if (-not [string]::IsNullOrEmpty($env:Product_Server_Root_Envs_File)) {
+          $envFile = Join-Path $env:WORKSPACE "1_$env:Product_Server_Root_Envs_File"
+          if (Test-Path $envFile) {
+              $propsFile = Join-Path $env:WORKSPACE $env:Product_Server_Root_Envs_File
+              Get-Content $propsFile | ForEach-Object {
+                  if ($_ -match '^([^=]+)=(.*)$') {
+                      [System.Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process')
+                  }
+              }
+          }
+      }
+    - |
+      # DevEnvDir based on MSBuildVersion
+      if ($env:MSBuildVersion -eq '2015') {
+          $env:NETFX_451_TOOLS = 'C:\Program Files (x86)\Microsoft SDKs\Windows\v8.1A\bin\NETFX 4.5.1 Tools'
+          $env:DevEnvDir        = $env:devenvpath140
+      } elseif ($env:MSBuildVersion -eq '2022') {
+          $env:NETFX_451_TOOLS = 'C:\Program Files (x86)\Microsoft SDKs\Windows\v8.1A\bin\NETFX 4.5.1 Tools'
+          $env:DevEnvDir        = $env:devenvpath220
+      } else {
+          $env:DevEnvDir        = $env:devenvpath110
+      }
+      # BIN is a Jenkins node-level variable pointing to the SDK tools dir
+      # containing TlbImp.exe — needed for COM interop DLL generation.
+      if (-not $env:BIN) {
+          $env:BIN = 'C:\Program Files (x86)\Microsoft SDKs\Windows\v8.1A\bin\NETFX 4.5.1 Tools'
+      }
+    - |
+      # Extended env vars (EnvInject block 2)
+      $env:EXPORT_SCRIPT_FOLDER       = $env:QTP_SDK_BATCH
+      $env:LOGGER_OUTPUT_PATH         = $env:QTP_INTERMEDIATE
+      $env:QTP_ROOT                   = $env:QTP_SOURCE_ROOT
+      $env:CustomReferencePath        = $env:ReferencePath
+      $env:CmdLineCustomReferencePath = $env:ReferencePath
+      $env:BUILD_TARGET               = 'Build'
+      $env:BUILD_PLATFORM             = $env:CONFIG
+      $env:CPU                        = 'Win32'
+      $env:BUILD_PLATFORM_UNICODE     = "$env:CONFIG | Win32"
+      $env:QTP_LOCAL                  = $env:QTP_OUTPUT_DIR
+      $env:QTP_SERVER                 = $env:QTP_OUTPUT_DIR
+      $env:QTPD_LOCAL                 = $env:QTP_OUTPUT_DIR
+      $env:QTPD_SERVER                = $env:QTP_OUTPUT_DIR
+      $env:QTP_IMPORT_UD_DIR          = $env:QTP_OUTPUT_DIR
+      $env:QTP_IMPORT_U_DIR           = $env:QTP_OUTPUT_DIR
+      $env:Tools_DIR                  = 'P:\LT\LT-Tools\Tools'
+      $env:JAVA12_HOME                = "$env:UFT_Tools\Java\jdk1.2.2_14"
+      $env:JAVA14_HOME                = "$env:UFT_Tools\Java\jdk1.4.build88"
+      $env:JAVA16_HOME                = "$env:UFT_Tools\Java\jdk1.6.0"
+      $env:JAVA16_45_HOME             = "$env:UFT_Tools\Java\jdk1.6.0_45"
+      $env:JAVA17_HOME                = "$env:UFT_Tools\Java\jdk1.7.0_55"
+      $env:JAVA18_HOME                = "$env:UFT_Tools\Java\jdk1.8.0_331"
+      $env:AZUL18_HOME                = "$env:UFT_Tools\Java\azul_jdk_1.8.0_372"
+      $env:JAVAADDIN_ANT              = "$env:UFT_Tools\ant\ant_1.10.13"
+      $env:JAVAADDIN_JAVA             = "$env:UFT_Tools\Java\jdk1.4.2_10"
+      $env:JAVA_HOME                  = "$env:UFT_Tools\Java\azul_jdk_1.8.0_372"
+      $env:MSJAVA_HOME                = "$env:UFT_Tools\Java\SDK_Java.40"
+      $env:JENKINS_SERVER_COOKIE      = 'DO_NOT_STOP_MY_PROCESS_JENKINS'
+      $env:HUDSON_SERVER_COOKIE       = 'DO_NOT_STOP_MY_PROCESS_JENKINS'
+      $env:JENKINS_COOKIE             = 'DO_NOT_STOP_MY_PROCESS_JENKINS'
+      $env:HUDSON_COOKIE              = 'DO_NOT_STOP_MY_PROCESS_JENKINS'
+    - |
+      # Java version injection
+      if ($env:BuildLabel -eq 'UFT_2022_0_Patches') {
+          $env:JAVA_HOME     = "$env:UFT_Tools\Java\jdk1.7.0_55"
+          $env:JAVAADDIN_ANT = "$env:UFT_Tools\ant\ant_1.8.4"
+      } else {
+          Write-Host "### NOT A PATCH BRANCH"
+          $env:JAVA_HOME = "$env:UFT_Tools\Java\azul_jdk_1.8.0_372"
+      }
+    - |
+      # Print diagnostic vars
+      Write-Host "**************************************"
+      Write-Host "       MSBuild Variables (UFT)"
+      Write-Host "**************************************"
+      Write-Host "Tools directory : $env:Tools_DIR"
+      Write-Host "ANT Location    : $env:ANT_HOME\bin"
+      Write-Host "Java Location   : $env:JAVA_HOME\bin"
+      Write-Host "------------------------------------"
+      Write-Host "QTP_OUTPUT_DIR  : $env:QTP_OUTPUT_DIR"
+      Write-Host "BIN Folder      : $env:BIN"
+      Write-Host "MAJOR_VER       : $env:MAJOR_VER"
+      Write-Host "MINOR_VER       : $env:MINOR_VER"
+      Write-Host "SVCPACK_VER     : $env:SVCPACK_VER"
+      Write-Host "XRVER           : $env:XRVER"
+      Write-Host "PATCH_VER       : $env:PATCH_VER"
+      Write-Host "FULL_VER        : $env:FULL_VER"
+      Write-Host "DevEnvDir       : $env:DevEnvDir"
+      Write-Host "CONFIG          : $env:CONFIG"
+      Write-Host "QTDIR           : $env:QTDIR"
+      Write-Host "QT5DIR          : $env:QT5DIR"
+      Write-Host "UFT_Tools       : $env:UFT_Tools"
+      Write-Host "------------------------------------"
+    - |
+      # Standard MSBuild path — run MSBuild with version-dependent exe
+      $logRand = [System.IO.Path]::GetRandomFileName().Replace('.','')
+      # Write log to local C:\ to avoid SMB idle-session timeout dropping the NAS file handle
+      # during long-running tasks (e.g. DllDependancyGraph scans for 45+ min with no NAS I/O).
+      $localLogsDir = "$env:CI_PROJECT_DIR\build\logs"
+      if (-not (Test-Path $localLogsDir)) { New-Item -ItemType Directory -Path $localLogsDir | Out-Null }
+      $logFile = "$localLogsDir\${logRand}_MSBuild_$env:JobName`_$env:MSBTarget.log"
+      $commonArgs = @(
+          "/t:$env:MSBTarget",
+          "/p:BuildNumber=$env:BuildNumber",
+          "/p:Label=$env:BuildLabel",
+          "/p:ForceLabel=$env:ForceLabel",
+          "/p:Configuration=`"$env:Configuration`"",
+          "/p:ForceConfiguration=false",
+          "/p:RegisterFiles=true",
+          "/p:Tools_DIR=$env:Tools_DIR",
+          "/p:QTP_OUTPUT_DIR=$env:QTP_OUTPUT_DIR",
+          "/p:skipImportLocalComponents=$env:skipImportLocalComponents",
+          "/l:FileLogger,Microsoft.Build.Engine;logfile=$logFile;Verbosity=$env:MSBuildLog_Verbosity",
+          "/nodeReuse:false"
+      )
+      if ($env:MaxCPUCount -and $env:MaxCPUCount -ne '') {
+          $commonArgs += "/maxcpucount:$env:MaxCPUCount"
+      }
+      if ($env:AddProperties -ne '') { $commonArgs += $env:AddProperties }
+
+      if ($env:MSBuildVersion -eq '2015') {
+          $msbuildExe = 'C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe'
+          Write-Host "Running MSBuild 14.0: $msbuildExe $env:MSBProj $($commonArgs -join ' ')"
+      } elseif ($env:MSBuildVersion -eq '2022') {
+          $msbuildExe = $env:MSBExe220
+          if (-not $msbuildExe) { $msbuildExe = 'C:\VS220\MSBuild\Current\Bin\MSBuild.exe' }
+          Write-Host "Running MSBuild 2022: $msbuildExe $env:MSBProj $($commonArgs -join ' ')"
+      } else {
+          $msbuildExe = 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe'
+          Write-Host "Running MSBuild 4.0: $msbuildExe $env:MSBProj $($commonArgs -join ' ')"
+      }
+
+      if (-not (Test-Path $msbuildExe)) {
+          Write-Error "MSBuild not found at: $msbuildExe"; exit 1
+      }
+      & $msbuildExe $env:MSBProj @commonArgs
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  artifacts:
+    name: "msbuild-${CI_JOB_NAME}-${CI_PIPELINE_ID}"
+    when: on_failure
+    expire_in: 2 days
+    paths:
+      - build/logs/

@@ -1,0 +1,88 @@
+# UFT.Create.MLU — Create MLU package
+# Jenkins: UFT.Create.MLU (MultiJobProject) — "05.1 - Create MLU"
+#   1. BatchFile: clean PASSOLO temp dir
+#   2. Phase "Change Binaries Files Version": UFT.Generic.Change.Bin.Files.Version
+#      InputList=build\info\Binaries_Version_To_Change_MLU.txt, NewVersion=${VersionNumber}
+#   3. Phase "Copy files to win32L10N folder" (5 parallel Robocopy jobs):
+#      Win32/System, Addins, Tools, Bin, Dat → Win32L10N equivalents
+#   4. Optional: copy vcRedist folder if VC2015Prerequisite.ini exists
+#   5. UFT.Compile.MLUFULL — DISABLED in Jenkins (condition=false); SKIPPED in migration
+#   6. Publish SetupBuilder to Rubicon — SKIPPED; workspace stays on persistent runner
+
+UFT.Create.MLU:
+  allow_failure: true
+  tags:
+    - ec2-runner
+  stage: setup-create-mlu
+  variables:
+    GIT_STRATEGY: none
+    DevOpsScriptsDir: "I:\\DevOps\\DevopsScripts"
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      if ([string]::IsNullOrWhiteSpace($workspace)) {
+        Write-Error "DestDir is not set — uft-build-compute-version artifact not received"
+        exit 1
+      }
+      Write-Host "UFT.Create.MLU workspace: $workspace"
+
+      # Step 1: Change version in MLU-specific binary list
+      $mluVersionList = Join-Path $workspace 'build\info\Binaries_Version_To_Change_MLU.txt'
+      $newVersion = $env:BuildVersion
+      if (Test-Path $mluVersionList) {
+        if (Test-Path "$env:DevOpsScriptsDir\ChangeFilesVersion.vbs") {
+          Write-Host "Changing MLU binary versions: InputList=$mluVersionList NewVersion=$newVersion"
+          cscript.exe "$env:DevOpsScriptsDir\ChangeFilesVersion.vbs" "$mluVersionList" "$newVersion"
+        } else {
+          Write-Host "WARNING: $env:DevOpsScriptsDir\ChangeFilesVersion.vbs not found — skipping version change"
+        }
+      } else {
+        Write-Host "WARNING: MLU version list not found: $mluVersionList — skipping"
+      }
+
+      # Step 2: Copy Win32 content folders → Win32L10N
+      $contentBase = Join-Path $workspace 'SetupBuilder\Output\UFT\Content'
+      $srcWin32  = Join-Path $contentBase 'Win32'
+      $destL10N  = Join-Path $contentBase 'Win32L10N'
+      if (Test-Path $srcWin32) {
+        Write-Host "Robocopy Win32 -> Win32L10N ..."
+        New-Item -ItemType Directory -Force -Path $destL10N | Out-Null
+        robocopy $srcWin32 $destL10N /E /R:3 /W:5 /NP
+        # Robocopy exit codes 0-7 indicate success (0=no change, 1=copied, etc.)
+        if ($LASTEXITCODE -gt 7) {
+          Write-Error "Robocopy Win32->Win32L10N failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
+        Write-Host "Win32 -> Win32L10N copy completed (rc=$LASTEXITCODE)"
+      } else {
+        Write-Host "WARNING: $srcWin32 does not exist — skipping Win32L10N copy"
+      }
+
+      # Step 3: Copy vcRedist folder if VC2015Prerequisite.ini exists
+      $vcRedistIni = Join-Path $contentBase 'Win32\TARGETDIR\vcRedist\VC2015Prerequisite.ini'
+      if (Test-Path $vcRedistIni) {
+        $vcRedistSrc  = Join-Path $contentBase 'Win32\TARGETDIR\vcRedist'
+        $vcRedistDest = Join-Path $contentBase 'Win32L10N\TARGETDIR\vcRedist'
+        Write-Host "Copying vcRedist folder ..."
+        New-Item -ItemType Directory -Force -Path $vcRedistDest | Out-Null
+        robocopy $vcRedistSrc $vcRedistDest /E /R:3 /W:5 /NP
+        if ($LASTEXITCODE -gt 7) {
+          Write-Error "Robocopy vcRedist failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
+        Write-Host "vcRedist copy completed"
+      }
+
+      Write-Host "UFT.Create.MLU: completed"
+  needs:
+    - job: UFT.Prepare.MLUSetup.RepView
+      artifacts: false
+    - job: UFT.Prepare.MLUSetup.QCPlugin
+      artifacts: false
+    - job: UFT.Prepare.MLUSetup.UFTSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

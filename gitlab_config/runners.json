@@ -1,0 +1,569 @@
+[
+  {
+    "id": 255,
+    "description": "bp2-docker-l001",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 302,
+    "description": "gitlab-runner-gitlab-runner-8479fffcd4-q9mn4",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 304,
+    "description": "gitlab-runner-gitlab-runner-8479fffcd4-q9mn4",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 305,
+    "description": "gitlab-runner-gitlab-runner-8479fffcd4-q9mn4",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 306,
+    "description": "gitlab-runner-gitlab-runner-8479fffcd4-q9mn4",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 307,
+    "description": "gitlab-runner-gitlab-runner-8479fffcd4-59pwc",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 3836,
+    "description": "OT2-WIN-03",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 3840,
+    "description": "bp2ubmglci01",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 3854,
+    "description": "BEACON-4-WIN",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 3963,
+    "description": "linux-ci-deployment-16",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4111,
+    "description": "gitlab-runner-gitlab-runner-755d8477f9-l46xz",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4747,
+    "description": "gitlab-runner-69cfd74c87-5zjmk",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4791,
+    "description": "gitlab-runner-69cfd74c87-5zjmk",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4792,
+    "description": "gitlab-runner-69cfd74c87-5zjmk",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4802,
+    "description": "gitlab-runner-69cfd74c87-4n96v",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 4814,
+    "description": "gitlab-runner-69cfd74c87-4n96v",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5006,
+    "description": "gitlab-runner-69cfd74c87-v8c26",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5047,
+    "description": "gitlab-runner-69cfd74c87-hfvdf",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5055,
+    "description": "bp2ubmglci02",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5056,
+    "description": "bp2ubmglci03",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5057,
+    "description": "bp2ubmglci04",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5058,
+    "description": "bp2ubmglci05",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5059,
+    "description": "bp2ubmglci06",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5060,
+    "description": "bp2ubmglci07",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5061,
+    "description": "bp2ubmglci08",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5062,
+    "description": "bp2ubmglci09",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5063,
+    "description": "bp2ubmglci10",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5067,
+    "description": "gitlab-runner-69cfd74c87-g29k9",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5180,
+    "description": "gitlab-runner-69cfd74c87-tgtjp",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5246,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5288,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5291,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5384,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5437,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5438,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5441,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5445,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5481,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5483,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5564,
+    "description": "ba-build1-fortify-sonarqube",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5575,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5596,
+    "description": "gitlab-runner-d7bd58d4-lx5jj",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5689,
+    "description": "ubmcluster test runner deployment",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5690,
+    "description": "ubmcluster",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 5697,
+    "description": "ubm shared linux cluster",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6068,
+    "description": "ubm shared windows container runners",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6095,
+    "description": "performance automation test",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6187,
+    "description": "Gitlab PAP",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6268,
+    "description": "BP2_001 Gitlab PAP",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6278,
+    "description": "ubmcluster",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 6910,
+    "description": "runner for windows 2022 docker image building",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 7165,
+    "description": "",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 7166,
+    "description": "",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 7997,
+    "description": "",
+    "status": "stale",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 10458,
+    "description": "waterloo production dynamic runner",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 10509,
+    "description": "",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 16086,
+    "description": "TAA runner open for both HMF and OT",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 20051,
+    "description": "",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 20053,
+    "description": "",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 30607,
+    "description": "EC2 Runner",
+    "status": "online",
+    "is_shared": false,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 30708,
+    "description": "TAA runner open for both HMF and OT and restricted for external traffic",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 34258,
+    "description": "gitlab runner windows opa",
+    "status": "online",
+    "is_shared": true,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  },
+  {
+    "id": 34616,
+    "description": "",
+    "status": "online",
+    "is_shared": false,
+    "tag_list": [],
+    "platform": null,
+    "architecture": null
+  }
+]

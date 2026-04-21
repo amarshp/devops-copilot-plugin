@@ -1,0 +1,167 @@
+{
+  "pipeline_id": 11221983,
+  "pipeline_status": "failed",
+  "total_jobs": 20,
+  "jobs": [
+    {
+      "job": "UFT.Create.Setups.Wix.CreatePFTW",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Create.Setups.Wix.CreatePFTW.log"
+    },
+    {
+      "job": "UFT.Create.Setups.Wix.BuildSetup",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Create.Setups.Wix.BuildSetup.log"
+    },
+    {
+      "job": "UFT.Setup.Finalize",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Setup.Finalize.log"
+    },
+    {
+      "job": "UFT.Generic.ChangeBinFiles.Version",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Generic.ChangeBinFiles.Version.log"
+    },
+    {
+      "job": "UFT.Generic.ChangeBinFiles.Attribute",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Generic.ChangeBinFiles.Attribute.log"
+    },
+    {
+      "job": "UFT.Generic.ChangeBinFiles.CompanyName",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Generic.ChangeBinFiles.CompanyName.log"
+    },
+    {
+      "job": "UFT.Generic.ChangeBinFiles.Copyrights",
+      "status": "skipped",
+      "duration": null,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Generic.ChangeBinFiles.Copyrights.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.NetExtensibility",
+      "status": "success",
+      "duration": 31.119626,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 17,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.NetExtensibility.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.WebAddin",
+      "status": "success",
+      "duration": 21.593882,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 16,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.WebAddin.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.UFTSetup",
+      "status": "failed",
+      "duration": 20.662464,
+      "msbuild_errors": 2,
+      "msbuild_warnings": 331,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.UFTSetup.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.UFTSetup.PreFlight",
+      "status": "success",
+      "duration": 57.637364,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.UFTSetup.PreFlight.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.ExtAccTool",
+      "status": "success",
+      "duration": 62.860821,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 7,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.ExtAccTool.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.QCPlugin",
+      "status": "failed",
+      "duration": 13.027484,
+      "msbuild_errors": 2,
+      "msbuild_warnings": 82,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.QCPlugin.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.RepView",
+      "status": "failed",
+      "duration": 10.971223,
+      "msbuild_errors": 2,
+      "msbuild_warnings": 46,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Prepare.AllSetup.RepView.log"
+    },
+    {
+      "job": "UFT.Setup.ALMAndBTP",
+      "status": "failed",
+      "duration": 8.049313,
+      "msbuild_errors": 1,
+      "msbuild_warnings": 3,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.Setup.ALMAndBTP.log"
+    },
+    {
+      "job": "fast-resume-setuputils-bootstrap",
+      "status": "success",
+      "duration": 5.459481,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_fast-resume-setuputils-bootstrap.log"
+    },
+    {
+      "job": "UFT.BuildNumber.Creator",
+      "status": "success",
+      "duration": 11.870883,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_UFT.BuildNumber.Creator.log"
+    },
+    {
+      "job": "uft-build-compute-version",
+      "status": "success",
+      "duration": 10.972917,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_uft-build-compute-version.log"
+    },
+    {
+      "job": "uft-build-env-setup",
+      "status": "success",
+      "duration": 10.583336,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_uft-build-env-setup.log"
+    },
+    {
+      "job": "INFRA.Net.Use",
+      "status": "success",
+      "duration": 10.99528,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "C:\\Users\\apedapati\\Documents\\UFTO Migration\\April 8 2026\\UFT-One-Migration_TillAddins\\pipeline_logs\\p11221983_INFRA.Net.Use.log"
+    }
+  ]
+}

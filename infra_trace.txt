@@ -1,0 +1,31 @@
+2026-04-20T11:18:14.180913Z 00O [0KRunning with gitlab-runner 18.9.0 (07e534ba)[0;m
+2026-04-20T11:18:14.180913Z 00O [0K  on ec2 KK9B08ihI, system ID: s_c94d713cb6a4[0;m
+2026-04-20T11:18:14.180913Z 00O [0K[36;1mResolving secrets[0;m[0;m
+2026-04-20T11:18:14.180913Z 00O section_start:1776683894:prepare_executor
+2026-04-20T11:18:14.180913Z 00O+[0K[0K[36;1mPreparing the "shell" executor[0;m[0;m
+2026-04-20T11:18:14.180913Z 00O [0KUsing Shell (powershell) executor...[0;m
+2026-04-20T11:18:14.180913Z 00O section_end:1776683894:prepare_executor
+2026-04-20T11:18:14.180913Z 00O+[0Ksection_start:1776683894:prepare_script
+2026-04-20T11:18:14.181434Z 00O+[0K[0K[36;1mPreparing environment[0;m[0;m
+2026-04-20T11:18:14.448352Z 01O Running on EC2AMAZ-3H281CR...
+2026-04-20T11:18:14.496090Z 00O section_end:1776683894:prepare_script
+2026-04-20T11:18:14.496090Z 00O+[0Ksection_start:1776683894:get_sources
+2026-04-20T11:18:14.496090Z 00O+[0K[0K[36;1mGetting source from Git repository[0;m[0;m
+2026-04-20T11:18:15.067635Z 01O [32;1mGitaly correlation ID: 01KPN9SGPVFXYN7PXG900S748G[0;m
+2026-04-20T11:18:15.150478Z 01O [32;1mFetching changes with git depth set to 20...[0;m
+2026-04-20T11:18:15.166325Z 01O Reinitialized existing Git repository in C:/GitLab-Runner/builds/KK9B08ihI/0/apedapati/ufto-manual/.git/
+2026-04-20T11:18:17.247072Z 01O [32;1mChecking out 267076bf as detached HEAD (ref is fast-test-setup-20260417)...[0;m
+2026-04-20T11:18:17.513515Z 01E warning: failed to remove build/logs/hs4m3au2vtb_MSBuild_UFT.Prepare.AllSetup.UFTSetup_PrepareUFTSetup_IHP2.log: Invalid argument
+2026-04-20T11:18:17.516691Z 01O Removing UFT_2026_3_win32_release_BuildNumber.txt
+2026-04-20T11:18:17.516691Z 01O Removing build/logs/1focxjpadp5_MSBuild_UFT.Prepare.AllSetup.NetExtensibility_PrepareDotNetExt_IHP2.log
+2026-04-20T11:18:17.516691Z 01O Removing build/logs/3ciwfkmo5zu_MSBuild_UFT.Prepare.AllSetup.WebAddin_PrepareWeb2AddinSetup_IHP2.log
+2026-04-20T11:18:17.516691Z 01O Removing build/logs/rq3dzjkcozk_MSBuild_UFT.Prepare.AllSetup.ExtAccTool_PrepareExtAccToolSetup_IHP2.log
+2026-04-20T11:18:17.516691Z 01O Removing build/logs/yb5ctpxxioy_MSBuild_UFT.Setup.ALMAndBTP_create_exports_for_ALM.log
+2026-04-20T11:18:17.516691Z 01O Removing build_compute.env
+2026-04-20T11:18:17.516691Z 01O Removing build_env_setup.env
+2026-04-20T11:18:17.534160Z 00O section_end:1776683897:get_sources
+2026-04-20T11:18:17.534160Z 00O+[0Ksection_start:1776683897:cleanup_file_variables
+2026-04-20T11:18:17.534781Z 00O+[0K[0K[36;1mCleaning up project directory and file based variables[0;m[0;m
+2026-04-20T11:18:17.884591Z 00O section_end:1776683897:cleanup_file_variables
+2026-04-20T11:18:17.884591Z 00O+[0K
+2026-04-20T11:18:17.884591Z 00O [31;1mERROR: Job failed: exit status 1[0;m

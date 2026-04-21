@@ -1,0 +1,74 @@
+[
+  {
+    "key": "NIGHTLY_EMAIL_COMMITER_LIST",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": false,
+    "environment_scope": "*",
+    "value": "apedapati@gmail.com"
+  },
+  {
+    "key": "FT_AUTO_PASS",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": true,
+    "environment_scope": "*",
+    "value": "***"
+  },
+  {
+    "key": "GIT_CLONE_USER",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": false,
+    "environment_scope": "*",
+    "value": "svc_UBM_pbommakanti"
+  },
+  {
+    "key": "GIT_CLONE_PASS",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": true,
+    "environment_scope": "*",
+    "value": "***"
+  },
+  {
+    "key": "LINUX_AGENT_HOST",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": false,
+    "environment_scope": "*",
+    "value": "10.168.244.245"
+  },
+  {
+    "key": "Rubicon_Username_Linux",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": true,
+    "environment_scope": "*",
+    "value": "***"
+  },
+  {
+    "key": "LINUX_SSH_USER",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": false,
+    "environment_scope": "*",
+    "value": "_ft_auto"
+  },
+  {
+    "key": "LINUX_SSH_PASS",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": true,
+    "environment_scope": "*",
+    "value": "***"
+  },
+  {
+    "key": "GITLAB_USER_TOKEN",
+    "variable_type": "env_var",
+    "protected": false,
+    "masked": true,
+    "environment_scope": "*",
+    "value": "***"
+  }
+]

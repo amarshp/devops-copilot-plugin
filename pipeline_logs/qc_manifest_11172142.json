@@ -1,0 +1,134 @@
+{
+  "pipeline_id": 11172142,
+  "total_jobs": 16,
+  "jobs": [
+    {
+      "job": "UFT.BuildNumber.Creator",
+      "status": "success",
+      "duration": 11.393857,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_UFT.BuildNumber.Creator.log"
+    },
+    {
+      "job": "uft-build-compute-version",
+      "status": "success",
+      "duration": 11.662911,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_uft-build-compute-version.log"
+    },
+    {
+      "job": "uft-build-env-setup",
+      "status": "success",
+      "duration": 8.614262,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_uft-build-env-setup.log"
+    },
+    {
+      "job": "INFRA.Net.Use",
+      "status": "success",
+      "duration": 7.03257,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_INFRA.Net.Use.log"
+    },
+    {
+      "job": "UFT.Setup.ALMAndBTP",
+      "status": "success",
+      "duration": 12.172304,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 3,
+      "log_path": "pipeline_logs\\p11172142_UFT.Setup.ALMAndBTP.log"
+    },
+    {
+      "job": "fast-resume-setuputils-bootstrap",
+      "status": "success",
+      "duration": 5.426927,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_fast-resume-setuputils-bootstrap.log"
+    },
+    {
+      "job": "UFT.Create.MLU",
+      "status": "success",
+      "duration": 168.943657,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 0,
+      "log_path": "pipeline_logs\\p11172142_UFT.Create.MLU.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.ExtAccTool",
+      "status": "success",
+      "duration": 57.326166,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 7,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.ExtAccTool.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.NetExtensibility",
+      "status": "success",
+      "duration": 27.022719,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 17,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.NetExtensibility.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.QCPlugin",
+      "status": "success",
+      "duration": 161.678958,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 106,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.QCPlugin.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.RepView",
+      "status": "success",
+      "duration": 80.202908,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 51,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.RepView.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.UFTSetup",
+      "status": "failed",
+      "duration": 159.414118,
+      "msbuild_errors": 1,
+      "msbuild_warnings": 333,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.UFTSetup.log"
+    },
+    {
+      "job": "UFT.Prepare.AllSetup.WebAddin",
+      "status": "success",
+      "duration": 21.44239,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 16,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.AllSetup.WebAddin.log"
+    },
+    {
+      "job": "UFT.Prepare.MLUSetup.QCPlugin",
+      "status": "success",
+      "duration": 175.248586,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 98,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.MLUSetup.QCPlugin.log"
+    },
+    {
+      "job": "UFT.Prepare.MLUSetup.RepView",
+      "status": "success",
+      "duration": 79.410844,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 43,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.MLUSetup.RepView.log"
+    },
+    {
+      "job": "UFT.Prepare.MLUSetup.UFTSetup",
+      "status": "success",
+      "duration": 1540.393491,
+      "msbuild_errors": 0,
+      "msbuild_warnings": 430,
+      "log_path": "pipeline_logs\\p11172142_UFT.Prepare.MLUSetup.UFTSetup.log"
+    }
+  ]
+}

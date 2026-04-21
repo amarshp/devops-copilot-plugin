@@ -6,7 +6,8 @@
 fast-resume-setuputils-bootstrap:
   stage: setup-alm-btp
   # Replaces: UFT.Compile.SetupUtils.BomCheck
-  tags: []
+  tags:
+    - windows
   variables:
     GIT_STRATEGY: none
   script:

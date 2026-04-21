@@ -1,0 +1,97 @@
+stages:
+  - build-prepare
+  - build-number
+  - build-get-source-prereq
+  - build-get-source
+  - build-get-source-final
+
+# uft-build-env-setup â€” NEW job (no Jenkins equivalent job).
+# Translates UFT.Build.xml EnvInjectJobProperty Groovy that runs before Phase 1:
+#   computes labelforBN (BuildLabel minus _For_Dev suffix),
+#           COMMITTERS_LIST (email list based on Type and Branch),
+#           Lst_Green_Tag (git tag name for green build),
+#           ChkOut_TagName (empty for Nightly, build_ci_{Branch} for CI builds).
+# These variables are consumed downstream via dotenv artifacts.
+# Jenkins source: UFT.Build.xml <EnvInjectJobProperty> Groovy script.
+
+variables:
+  BuildLabel:
+    value: "UFT_2026_3"
+    description: "Build label (e.g. UFT_2026_3)"
+  Branch:
+    value: "master"
+    description: "Source branch"
+  Type:
+    value: "Nightly"
+    description: "Build type: Nightly or CI"
+  MailToList:
+    value: ""
+    description: "Override email recipients (blank = use default)"
+
+.uft-build-base:
+  tags:
+    - windows
+  resource_group: UFT.Build
+  timeout: 60 minutes
+
+uft-build-env-setup:
+  extends: .uft-build-base
+  stage: build-number
+  # No needs: required â€” stage ordering (build-prepare â†’ build-number) guarantees
+  # INFRA.Net.Use runs first. Adding needs: INFRA.Net.Use causes GitLab include-
+  # resolution order issues where the job is flagged as undefined.
+  script:
+    - |
+      # Translated from UFT.Build.xml EnvInjectJobProperty Groovy to PowerShell.
+      $buildLabel  = $env:BuildLabel
+      $type        = $env:Type
+      $branch      = $env:Branch
+      $mailToList  = $env:MailToList
+
+      # Strip _For_Dev suffix (Jenkins: BuildLabel.replace("_For_Dev", ""))
+      $labelforBN = $buildLabel.Replace("_For_Dev", "")
+
+      $lstgreen        = ""
+      $COMMITTERS_LIST = ""
+
+      if ($type -eq "CI") {
+        $lstgreen        = "build_ci_${branch}_lstgreen"
+        $COMMITTERS_LIST = "akaminsky@opentext.com,cc:MFI-ftmobile.dev.managers@opentext.com,cc:MFI-uft.build.info@opentext.com,cc:MFI-pdl-bto-sel-uft-qa@opentext.com,cc:MFI-ufto.dev@opentext.com,rbachar@opentext.com,cc:ADM-Hyd-FT@opentext.com"
+      } else {
+        $COMMITTERS_LIST = "rbachar@opentext.com,cc:MFI-ftmobile.dev.managers@opentext.com,cc:MFI-uft.build.info@opentext.com,cc:MFI-pdl-bto-sel-uft-qa@opentext.com,cc:MFI-ufto.dev@opentext.com,cc:ADM-Hyd-FT@opentext.com"
+        $lstgreen        = "build_nightly_${branch}_lstgreen"
+      }
+
+      if (-not [string]::IsNullOrEmpty($mailToList)) {
+        $COMMITTERS_LIST = $mailToList
+      }
+
+      # Branch-specific committer overrides (mirrors Jenkins Groovy conditionals)
+      if ($branch -eq "UFT_14_53_DT" -or $branch -eq "AuthToken") {
+        $COMMITTERS_LIST = "rgullapally@opentext.com"
+      }
+
+      # ChkOut_TagName: empty for Nightly, set for CI (mirrors UFT.Prepare.Git.Source Groovy)
+      $chkOutTagName = ""
+      if ($type -eq "CI") {
+        $chkOutTagName = "build_ci_${branch}"
+      }
+
+      Write-Host "labelforBN=$labelforBN"
+      Write-Host "Lst_Green_Tag=$lstgreen"
+      Write-Host "ChkOut_TagName=$chkOutTagName"
+      Write-Host "COMMITTERS_LIST (masked for security)"
+
+      @(
+        "labelforBN=$labelforBN",
+        "Lst_Green_Tag=$lstgreen",
+        "ChkOut_TagName=$chkOutTagName",
+        "COMMITTERS_LIST=$COMMITTERS_LIST"
+      ) | Set-Content build_env_setup.env -Encoding utf8
+  artifacts:
+    reports:
+      dotenv: build_env_setup.env
+    paths:
+      - build_env_setup.env
+    expire_in: 5 days
+

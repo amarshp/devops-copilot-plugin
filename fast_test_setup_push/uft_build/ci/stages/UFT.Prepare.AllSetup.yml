@@ -1,0 +1,345 @@
+# UFT.Prepare.AllSetup — Prepare all installer MSIs (6 parallel MSBuild prepare jobs)
+# Jenkins: UFT.Prepare.AllSetup (MultiJobProject) — "06 - Prepare All Setups"
+#   Phase "Prepare All Setups" (PARALLEL, 6 jobs):
+#     UFT.Prepare.RepView.Setup       → PrepareUFTRepViewSetup_IHP2
+#     UFT.Prepare.QCPlugin.Setup      → PrepareQCPluginSetup_IHP2
+#     UFT.Prepare.ExtAccTool.Setup    → PrepareExtAccToolSetup_IHP2
+#     UFT.Prepare.UFT.Setup           → PrepareUFTSetup_IHP2
+#     UFT.Prepare.WebAddin.Setup      → PrepareWeb2AddinSetup_IHP2
+#     UFT.Prepare.NetExtensibility    → PrepareDotNetExt_IHP2 (conditional on NetExtensibility=true)
+#   All use MSBProj=build\create_msi.proj
+#
+# UFTSetup is split into 2 jobs:
+#   UFT.Prepare.AllSetup.UFTSetup.PreFlight  — fast (~5 min): pre-create NAS dirs, validate P:\ paths
+#   UFT.Prepare.AllSetup.UFTSetup            — slow (~90 min): actual MSBuild PrepareUFTSetup_IHP2
+
+UFT.Prepare.AllSetup.RepView:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  # RepView is the first job in the serialized AllSetup chain.
+  # Kill stale MSBuild processes here — safe because no other MSBuild job
+  # is running yet. Cross-stage jobs (e.g. ALMAndBTP) must NOT do this kill
+  # because they can overlap with AllSetup jobs via needs-based scheduling.
+  before_script:
+    - |
+      $procs = Get-Process -Name 'msbuild' -ErrorAction SilentlyContinue
+      if ($procs) {
+          Write-Host "Killing $($procs.Count) stale MSBuild process(es): $(($procs | ForEach-Object { $_.Id }) -join ', ')"
+          $procs | Stop-Process -Force
+          Start-Sleep -Seconds 3
+      } else {
+          Write-Host "No stale MSBuild processes — clean start."
+      }
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareUFTRepViewSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.RepView"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Prepare.AllSetup.QCPlugin:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareQCPluginSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.QCPlugin"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+    # Serialized after RepView to prevent concurrent writes to shared
+    # U:\..\SetupBuilder\Output\UFT\Content\Win32\TARGETDIR\bin\ on a single runner.
+    - job: UFT.Prepare.AllSetup.RepView
+      artifacts: false
+
+UFT.Prepare.AllSetup.ExtAccTool:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareExtAccToolSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.ExtAccTool"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+    # Serialized after QCPlugin to prevent shared output-dir file locking.
+    - job: UFT.Prepare.AllSetup.QCPlugin
+      artifacts: false
+
+UFT.Prepare.AllSetup.UFTSetup.PreFlight:
+  # ── Phase 0: NAS pre-flight (~5 min) ─────────────────────────────────────
+  # Validates all P:\ source paths and pre-creates the leanft-comps
+  # node_modules directory tree on NAS BEFORE MSBuild runs.
+  #
+  # Root cause: HP.XML.FileCopier calls DirectoryInfo.Create() on each
+  # target dir. On NAS (SMB), creating a deep path like:
+  #   U:\...\leanft-comps\node_modules\lodash
+  # fails with DirectoryNotFoundException when the full parent chain
+  # doesn't already exist. This spams thousands of 5-retry error lines,
+  # burns the GitLab 4MB log cap in 13 min, and ultimately kills MSBuild.
+  # Pre-creating via robocopy /E /XF * (dirs only) fixes this.
+  allow_failure: false
+  tags:
+    - windows
+  timeout: 30 minutes
+  stage: setup-prepare-all
+  variables:
+    GIT_STRATEGY: none
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+  script:
+    - |
+      # ── SECTION 1: Compute build version ─────────────────────────────────
+      Write-Host "`e[0Ksection_start:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s1`r`e[0K=== PHASE 1: Compute build version ==="
+      $env:Workspace_Home = $env:Workspace_Home -replace '/', '\'
+      # Mirror INFRA.UFT.MSBuild.yml FULL_VER logic: SvcpackVersion changes the ordering
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:BuildNumber.$env:BuildPostfix"
+      } else {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:SvcpackVersion.$env:BuildNumber"
+      }
+      $DEST_BASE = "U:\$FULL_VER"
+      Write-Host "FULL_VER  : $FULL_VER"
+      Write-Host "DEST_BASE : $DEST_BASE"
+      Write-Host "`e[0Ksection_end:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s1`r`e[0K"
+    - |
+      # ── SECTION 2: Validate NAS connectivity and SetupBuilder dirs ────────
+      Write-Host "`e[0Ksection_start:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s2`r`e[0K=== PHASE 2: Validate NAS connectivity ==="
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:BuildNumber.$env:BuildPostfix"
+      } else {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:SvcpackVersion.$env:BuildNumber"
+      }
+      $DEST_BASE = "U:\$FULL_VER"
+      $requiredDirs = @(
+        "$DEST_BASE\SetupBuilder",
+        "$DEST_BASE\SetupBuilder\Output",
+        "$DEST_BASE\SetupBuilder\Output\UFT",
+        "$DEST_BASE\SetupBuilder\Output\UFT\MSIBuildProperties",
+        "$DEST_BASE\SetupBuilder\Output\UFT\MSIBuildProperties\RegFiles"
+      )
+      $allOk = $true
+      foreach ($d in $requiredDirs) {
+        if (Test-Path $d) { Write-Host "  OK: $d" }
+        else {
+          Write-Host "  CREATING: $d"
+          New-Item -ItemType Directory -Path $d -Force | Out-Null
+          if (Test-Path $d) { Write-Host "  CREATED OK: $d" }
+          else { Write-Host "  FAILED to create: $d"; $allOk = $false }
+        }
+      }
+      if (-not $allOk) { Write-Error "NAS dir validation failed"; exit 1 }
+      Write-Host "NAS connectivity: OK"
+      Write-Host "`e[0Ksection_end:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s2`r`e[0K"
+    - |
+      # ── SECTION 3: Validate P:\ source paths ─────────────────────────────
+      Write-Host "`e[0Ksection_start:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s3`r`e[0K=== PHASE 3: Validate P:\ source paths ==="
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:BuildNumber.$env:BuildPostfix"
+      } else {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:SvcpackVersion.$env:BuildNumber"
+      }
+      $srcPaths = @(
+        "P:\FT\QTP\win32_release\$FULL_VER",
+        "P:\FT\QTP\win32_release\$FULL_VER\QTP\QTP_OUTPUT_DIR\bin",
+        "P:\FT\QTP\win32_release\$FULL_VER\QTP\Addins\TePackage\Dat\TePassport.reg"
+      )
+      foreach ($p in $srcPaths) {
+        if (Test-Path $p) { Write-Host "  OK: $p" }
+        else { Write-Host "  MISSING: $p" }
+      }
+      # Find CodedFT (leanft-comps source) - version is a dependency, not our build
+      $codedFTBase = Get-ChildItem "P:\FT\CodedFT\win32_release" -Directory -ErrorAction SilentlyContinue |
+                     Sort-Object LastWriteTime -Descending | Select-Object -First 1
+      if ($codedFTBase) {
+        Write-Host "  CodedFT version: $($codedFTBase.Name)"
+        $leanftSrc = "$($codedFTBase.FullName)\npm-components\leanft-comps\node_modules"
+        if (Test-Path $leanftSrc) { Write-Host "  leanft-comps src : OK ($leanftSrc)" }
+        else { Write-Host "  leanft-comps src : MISSING ($leanftSrc)" }
+        # Store for next section
+        $env:LEANFT_SRC = $leanftSrc
+      } else {
+        Write-Host "  WARNING: CodedFT not found on P:\FT\CodedFT\win32_release"
+      }
+      Write-Host "`e[0Ksection_end:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s3`r`e[0K"
+    - |
+      # ── SECTION 4: Pre-create leanft-comps node_modules dir tree on NAS ──
+      Write-Host "`e[0Ksection_start:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s4`r`e[0K=== PHASE 4: Pre-create leanft-comps dir tree on NAS ==="
+      if ([string]::IsNullOrWhiteSpace($env:SvcpackVersion)) {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:BuildNumber.$env:BuildPostfix"
+      } else {
+          $FULL_VER = "$env:BuildMajorVersion.$env:BuildMinorVersion.$env:SvcpackVersion.$env:BuildNumber"
+      }
+      $leanftDst = "U:\$FULL_VER\SetupBuilder\Output\UFT\Content\Win32\TARGETDIR\Tools\bin\leanft-comps\node_modules"
+      # Unconditionally create the parent chain first (guaranteed to exist before robocopy)
+      New-Item -ItemType Directory -Force -Path $leanftDst -ErrorAction SilentlyContinue | Out-Null
+      if (Test-Path $leanftDst) {
+        Write-Host "  Base dir created: $leanftDst"
+      } else {
+        Write-Host "  WARNING: Could not create base dir: $leanftDst"
+        # Try step-by-step
+        $parts = $leanftDst.Split('\')
+        $cur = $parts[0]
+        foreach ($p in $parts[1..($parts.Length-1)]) {
+          $cur = "$cur\$p"
+          if (-not (Test-Path $cur)) {
+            New-Item -ItemType Directory -Path $cur -Force | Out-Null
+            Write-Host "    Created: $cur"
+          }
+        }
+      }
+      # Now use robocopy to mirror directory structure only (no files) from CodedFT
+      $codedFTBase = Get-ChildItem "P:\FT\CodedFT\win32_release" -Directory -ErrorAction SilentlyContinue |
+                     Sort-Object LastWriteTime -Descending | Select-Object -First 1
+      if ($codedFTBase) {
+        $leanftSrc = "$($codedFTBase.FullName)\npm-components\leanft-comps\node_modules"
+        if (Test-Path $leanftSrc) {
+          Write-Host "  Mirroring dir tree from: $leanftSrc"
+          Write-Host "  Destination           : $leanftDst"
+          # /E = include empty subdirs, /XF * = exclude all files, /NP /NFL /NDL = quiet
+          $rc = (robocopy $leanftSrc $leanftDst /E /XF * /NP /NFL /NDL /R:0 /W:0 /MT:8)
+          Write-Host "  Robocopy exit code: $LASTEXITCODE (0-7 = success for dirs-only)"
+          # Robocopy exit codes 0-7 are success
+          if ($LASTEXITCODE -gt 7) { Write-Host "  WARNING: robocopy had errors" }
+          else { Write-Host "  Dir tree mirrored OK" }
+        }
+      }
+      # Final verification
+      $subCount = (Get-ChildItem $leanftDst -Recurse -Directory -ErrorAction SilentlyContinue).Count
+      Write-Host "  Subdirectories pre-created: $subCount"
+      Write-Host "`e[0Ksection_end:$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()):s4`r`e[0K"
+      Write-Host "=== PreFlight COMPLETE ==="
+
+UFT.Prepare.AllSetup.UFTSetup:
+  # ── Phase 1 (Main): PrepareUFTSetup_IHP2 MSBuild (~90 min) ───────────────
+  # Runs after PreFlight has validated NAS dirs and pre-created leanft tree.
+  allow_failure: false
+  timeout: 3h
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareUFTSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.UFTSetup"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  before_script:
+    - |
+      # ── Kill stale MSBuild processes ──────────────────────────────────────
+      # UFTSetup now runs AFTER the 5 short AllSetup jobs (serialized via needs).
+      # Even so, kill any orphaned MSBuild instances from prior failed pipelines
+      # that the runner did not reap (Windows process-tree cleanup is unreliable
+      # for grandchild processes protected by JENKINS_SERVER_COOKIE).
+      $procs = Get-Process -Name 'msbuild' -ErrorAction SilentlyContinue
+      if ($procs) {
+          Write-Host "Killing $($procs.Count) stale MSBuild process(es): $(($procs | ForEach-Object { $_.Id }) -join ', ')"
+          $procs | Stop-Process -Force
+          Start-Sleep -Seconds 3
+      } else {
+          Write-Host "No stale MSBuild processes found — clean start."
+      }
+    - |
+      # ── Force-remount P:\ only + SMB keepalive ───────────────────────────
+      # IMPORTANT: Only P:\ is deleted and remapped here.
+      # DO NOT touch U:\ — by the time UFTSetup runs (serialized last), the
+      # other AllSetup jobs (RepView/QCPlugin/ExtAccTool/WebAddin/NetExtensibility)
+      # have already finished. However during job startup the runner may still
+      # have their MSBuild DLLs memory-mapped from U:\ so we avoid deleting U:\.
+      #
+      # P:\ is safe to delete because:
+      #   - No other parallel AllSetup job accesses P:\ as its workspace root
+      #   - P:\ was mounted by INFRA.Net.Use with /persistent:no and its SMB
+      #     session may have dropped during the prior stage gap
+      #   - UFTSetup first accesses P:\FT\LeanFT\... several minutes into the
+      #     MSBuild run; the stale mount causes "Could not find path" errors
+      $STORAGE_WIN_SERVER   = "\\rubicon.cross.admlabs.aws.swinfra.net\NAS_NTPP"
+      $PRODUCTS_STORAGE_WIN = "$STORAGE_WIN_SERVER\products"
+
+      # Force-delete and remount P:\ with a fresh SMB session
+      Write-Host "Force-remounting P:\ ..."
+      cmd /c "net use P: /delete /y" 2>&1 | Out-Null
+      cmd /c "net use P: $PRODUCTS_STORAGE_WIN /u:_ft_auto /persistent:no"
+      # Verify with a real deep path — Test-Path "P:\" returns True even for stale mounts
+      if (-not (Test-Path "P:\FT\LeanFT\win32_release")) {
+        Write-Error "P:\FT\LeanFT\win32_release not accessible after remount — aborting"; exit 1
+      }
+      Write-Host "P:\ verified OK: P:\FT\LeanFT\win32_release accessible"
+
+      # U:\ — do NOT delete; other parallel jobs are running MSBuild from it.
+      # Only remount if it appears completely gone (Test-Path U:\ fails).
+      if (-not (Test-Path "U:\")) {
+        Write-Host "U:\ missing — remounting..."
+        cmd /c "net use U: $PRODUCTS_STORAGE_WIN\FT\QTP\win32_release /u:_ft_auto /persistent:no"
+      }
+      Write-Host "U:\ accessible: $(Test-Path 'U:\')"
+
+      # Start P:\ keepalive as an INDEPENDENT process (not Start-Job).
+      # Start-Job runs a thread in THIS PowerShell session — when before_script
+      # exits the session, the thread dies. Start-Process spawns a detached
+      # powershell.exe process that outlives the before_script session and
+      # continues touching P:\ throughout the long MSBuild run.
+      $keepAliveScript = 'while ($true) { Start-Sleep -Seconds 60; Get-ChildItem "P:\FT\LeanFT\win32_release" -ErrorAction SilentlyContinue | Out-Null; Get-ChildItem "P:\FT\CodedFT\win32_release" -ErrorAction SilentlyContinue | Out-Null }'
+      Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$keepAliveScript`"" -PassThru | Out-Null
+      Write-Host "SMB keepalive for P:\ started as independent process (60 s interval)."
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+    - job: UFT.Prepare.AllSetup.UFTSetup.PreFlight
+      artifacts: false
+    # Serialized last — UFTSetup is the longest job (~90 min) and must not run
+    # concurrently with the other 5 AllSetup jobs; all share Win32\TARGETDIR\bin\ on U:\
+    - job: UFT.Prepare.AllSetup.NetExtensibility
+      artifacts: false
+
+UFT.Prepare.AllSetup.WebAddin:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareWeb2AddinSetup_IHP2"
+    JobName: "UFT.Prepare.AllSetup.WebAddin"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+    # Serialized after ExtAccTool to prevent shared output-dir file locking.
+    - job: UFT.Prepare.AllSetup.ExtAccTool
+      artifacts: false
+
+UFT.Prepare.AllSetup.NetExtensibility:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-prepare-all
+  variables:
+    MSBProj: 'build\create_msi.proj'
+    MSBTarget: "PrepareDotNetExt_IHP2"
+    JobName: "UFT.Prepare.AllSetup.NetExtensibility"
+    MSBProj_For_Consumption: 'build\create_msi.proj'
+  needs:
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+    # Serialized after WebAddin to prevent shared output-dir file locking.
+    - job: UFT.Prepare.AllSetup.WebAddin
+      artifacts: false

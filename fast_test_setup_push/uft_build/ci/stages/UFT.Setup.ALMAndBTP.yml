@@ -1,0 +1,24 @@
+# UFT.Setup.ALMAndBTP — Export UFT binaries for ALM and BPT report consumption
+# Jenkins: UFT.For.ALM.And.BTPRpt (MultiJobProject) — "03 - Build UFT for ALM and BPT report"
+#   Phase "Export for ALM": INFRA.UFT.MSBuild
+#     MSBProj=build\export.proj, MSBTarget=create_exports_for_ALM, /p:EnabledDebug=true
+#   Code-sign phases (AUJAS/HPCSS/SignHP/CodeSeal) — omitted; allow_failure=true covers partial runs
+#   Robocopy to Rubicon publish dir — omitted; workspace stays on persistent runner
+
+UFT.Setup.ALMAndBTP:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-alm-btp
+  variables:
+    MSBProj: 'build\export.proj'
+    MSBTarget: "create_exports_for_ALM"
+    JobName: "UFT.Setup.ALMAndBTP"
+    MSBProj_For_Consumption: 'build\export.proj'
+  needs:
+    - job: fast-resume-setuputils-bootstrap
+      artifacts: false
+      optional: true
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

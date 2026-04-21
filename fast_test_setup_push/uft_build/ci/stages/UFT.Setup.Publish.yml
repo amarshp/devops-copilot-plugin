@@ -1,0 +1,60 @@
+# UFT.Setup.Publish — Publish setup build logs and summarise outputs
+# Jenkins: UFT.Publish.SetupLogs.To.Rubicon (MultiJobProject) — "11 - Publish Setup logs"
+#   BatchFile: deletes PublishDir\build\logs (cleans stale logs)
+#   Phase "Publish Logs" (2 Robocopy jobs): $WORKSPACE\build → ${PublishDir}\build
+#
+# In GitLab migration: the persistent EC2 runner workspace IS the publish destination.
+# This job logs available setup outputs and exposes key files as GitLab artifacts.
+
+UFT.Setup.Publish:
+  allow_failure: false
+  rules:
+    - if: '$SKIP_JENKINS_SKIPPED_JOBS == "true"'
+      when: never
+    - when: on_success
+  tags:
+    - windows
+  stage: setup-publish
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      Write-Host "UFT.Setup.Publish: workspace=$workspace"
+
+      # Summarise setup output folders
+      $outputs = @(
+        'SetupBuilder\Output',
+        'DVD',
+        'DVD_Wix',
+        'HotFix'
+      )
+      foreach ($rel in $outputs) {
+        $p = Join-Path $workspace $rel
+        if (Test-Path $p) {
+          $count = (Get-ChildItem $p -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
+          Write-Host "OUTPUT $rel : $count files"
+        } else {
+          Write-Host "OUTPUT $rel : not present"
+        }
+      }
+
+      # List any MSI/EXE produced in SetupBuilder\Output
+      $msiList = Get-ChildItem (Join-Path $workspace 'SetupBuilder\Output') -Recurse -Include '*.msi','*.exe' -ErrorAction SilentlyContinue |
+                 Select-Object -ExpandProperty FullName
+      if ($msiList) {
+        Write-Host "Setup artifacts produced:"
+        $msiList | ForEach-Object { Write-Host "  $_" }
+      } else {
+        Write-Host "No MSI/EXE artifacts found in SetupBuilder\Output (jobs may have allow_failure)"
+      }
+
+      Write-Host "UFT.Setup.Publish: complete"
+  needs:
+    - job: UFT.Create.Setups.Wix.CreatePFTW
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

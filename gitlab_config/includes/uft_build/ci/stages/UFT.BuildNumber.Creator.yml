@@ -1,0 +1,151 @@
+stages:
+  - build-prepare
+  - build-number
+  - build-get-source-prereq
+  - build-get-source
+  - build-get-source-final
+
+# UFT.BuildNumber.Creator Ã¢â‚¬â€ auto-increments (or manually sets / deletes) the UFT build number.
+# Jenkins: FreeStyleProject on UFTCI node. Uses CopyArtifact-from-self to restore the
+#          prior successful build number, then increments it.
+# GitLab: Uses CI API jobs endpoint to find the prior successful UFT.BuildNumber.Creator
+#         job and downloads its artifact to restore the build number file.
+#         Pattern is equivalent to UFT.Remote.Agents.BuildNumber.Creator (validated).
+# Jenkins source: fetch_xml/config_xml/UFT.BuildNumber.Creator.xml
+
+variables:
+  BuildLabel:
+    value: "UFT_2026_3"
+    description: "Build label (e.g. UFT_2026_3)"
+  Type:
+    value: "Automatic"
+    description: "Automatic (increment), Manual (set Value), or Delete (remove BN files)"
+  Value:
+    value: ""
+    description: "If Type=Manual, the exact build number to set"
+  Configuration:
+    value: "win32_release"
+    description: "Build configuration"
+
+.uft-build-number-defaults:
+  stage: build-number
+  tags:
+    - windows
+  timeout: 3 minutes
+
+"UFT.BuildNumber.Creator":
+  extends: .uft-build-number-defaults
+  needs:
+    - job: uft-build-env-setup
+      artifacts: true
+  before_script:
+    - |
+      # Jenkins: PreBuildCleanup wipes entire workspace.
+      # GitLab: Remove only prior BN files to avoid wiping shared workspace files.
+      Get-ChildItem -Filter "*_BuildNumber.txt" -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+  script:
+    - |
+      # Compute bnfileName from labelforBN (provided by uft-build-env-setup artifact).
+      # Jenkins equivalent: EnvInjectJobProperty Groovy computes bnfileName at build start.
+      $labelforBN = $env:labelforBN
+      if ([string]::IsNullOrEmpty($labelforBN)) { $labelforBN = $env:BuildLabel }
+
+      if ([string]::IsNullOrEmpty($env:Configuration)) {
+        $env:bnfileName = "${labelforBN}_BuildNumber.txt"
+      } else {
+        $env:bnfileName = "${labelforBN}_$($env:Configuration)_BuildNumber.txt"
+      }
+      Write-Host "bnfileName=$($env:bnfileName)"
+    - |
+      # Restore prior build number from previous successful GitLab job artifact.
+      # Jenkins equivalent: CopyArtifact plugin copies from "${JOB_Name}" (self), last successful build.
+      $bnFile  = $env:bnfileName
+      $headers = @{}
+      if (-not [string]::IsNullOrWhiteSpace($env:CI_JOB_TOKEN)) {
+        $headers['JOB-TOKEN'] = $env:CI_JOB_TOKEN
+      } elseif (-not [string]::IsNullOrWhiteSpace($env:GITLAB_USER_TOKEN)) {
+        $headers['PRIVATE-TOKEN'] = $env:GITLAB_USER_TOKEN
+      } elseif (-not [string]::IsNullOrWhiteSpace($env:GITLAB_API_TOKEN)) {
+        $headers['PRIVATE-TOKEN'] = $env:GITLAB_API_TOKEN
+      } else {
+        throw "No GitLab token available for build-number artifact restore."
+      }
+
+      $jobsUrl = "$($env:CI_API_V4_URL)/projects/$($env:CI_PROJECT_ID)/jobs?scope[]=success&per_page=100"
+      try {
+        $successfulJobs = Invoke-RestMethod -Uri $jobsUrl -Headers $headers -Method Get -ErrorAction Stop
+        $priorJob = $successfulJobs |
+          Where-Object {
+            $_.name -eq 'UFT.BuildNumber.Creator' -and
+            $_.id -ne [int]$env:CI_JOB_ID
+          } |
+          Sort-Object -Property id -Descending |
+          Select-Object -First 1
+
+        if ($null -eq $priorJob) {
+          Write-Host "No prior successful UFT.BuildNumber.Creator job found; first-run state."
+        } else {
+          $artifactZip = Join-Path $env:TEMP ("uft-bn-$($priorJob.id).zip")
+          $artifactDir = Join-Path $env:TEMP ("uft-bn-$($priorJob.id)")
+          $artifactUrl = "$($env:CI_API_V4_URL)/projects/$($env:CI_PROJECT_ID)/jobs/$($priorJob.id)/artifacts"
+
+          if (Test-Path $artifactZip) { Remove-Item $artifactZip -Force -ErrorAction SilentlyContinue }
+          if (Test-Path $artifactDir) { Remove-Item $artifactDir -Recurse -Force -ErrorAction SilentlyContinue }
+
+          Invoke-WebRequest -Uri $artifactUrl -Headers $headers -OutFile $artifactZip -UseBasicParsing -ErrorAction Stop
+          Expand-Archive -Path $artifactZip -DestinationPath $artifactDir -Force
+
+          $restoredBnFile = Join-Path $artifactDir $bnFile
+          if (Test-Path $restoredBnFile) {
+            Copy-Item $restoredBnFile $bnFile -Force
+            Write-Host "Restored build number from job $($priorJob.id)"
+          } else {
+            Write-Host "Prior job $($priorJob.id) did not contain $bnFile; first-run state."
+          }
+        }
+      } catch {
+        Write-Host "Could not restore prior build number: $_ Ã¢â‚¬â€ starting from 0."
+      }
+    - |
+      # Load existing BuildNumber from restored file.
+      # Jenkins equivalent: conditional EnvInjectBuilder reads properties file if it exists.
+      $bnFile = $env:bnfileName
+      $env:BuildNumber = "0"
+      if (Test-Path $bnFile) {
+        $content = Get-Content $bnFile -Raw
+        if ($content -match 'BuildNumber\s*=\s*(\d+)') {
+          $env:BuildNumber = $Matches[1].Trim()
+          Write-Host "Loaded BuildNumber=$($env:BuildNumber) from $bnFile"
+        }
+      } else {
+        Write-Host "No existing BN file at $bnFile; BuildNumber defaults to 0"
+      }
+    - |
+      # Compute new BuildNumber based on Type param.
+      # Jenkins equivalent: BatchFile with IF/ELSE logic; Delete removes all BN files.
+      $bnFile = $env:bnfileName
+
+      if ($env:Type -eq "Delete") {
+        Write-Host "Type=Delete: removing all build number files."
+        Get-ChildItem -Filter "*_BuildNumber.txt" -ErrorAction SilentlyContinue |
+          Remove-Item -Force -ErrorAction SilentlyContinue
+        exit 0
+      } elseif ($env:Type -eq "Manual") {
+        $buildNumber1 = [int]$env:Value
+      } else {
+        # Automatic (default)
+        $buildNumber1 = [int]$env:BuildNumber + 1
+      }
+
+      Write-Host "BuildNumber=$buildNumber1"
+      "BuildNumber=$buildNumber1" | Set-Content $bnFile -Encoding ASCII
+      Get-Content $bnFile
+
+      # UNMIGRATABLE: SystemGroovy build.setDisplayName() has no GitLab equivalent.
+      Write-Host "Display name would be: #$($env:CI_PIPELINE_IID) | $($env:Type) | $($env:BuildLabel) | $($env:Configuration)"
+  artifacts:
+    paths:
+      - "*_BuildNumber.txt"
+    expire_in: 5 days
+

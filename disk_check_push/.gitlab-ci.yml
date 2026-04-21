@@ -1,0 +1,21 @@
+stages:
+  - check
+
+disk-check:
+  stage: check
+  tags:
+    - ec2-runner
+  script:
+    - echo "=== U drive top folders under 2026.3.0.120 ==="
+    - powershell -NoProfile -Command "Get-ChildItem 'U:\2026.3.0.120' -Directory -ErrorAction SilentlyContinue | ForEach-Object { $d = $_; try { $sz = (Get-ChildItem $d.FullName -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; '{0,10:N0} MB  {1}' -f ($sz/1MB), $d.Name } catch { 'ERROR  ' + $d.Name } }"
+    - echo "=== SetupBuilder subfolder sizes ==="
+    - powershell -NoProfile -Command "if (Test-Path 'U:\2026.3.0.120\SetupBuilder') { Get-ChildItem 'U:\2026.3.0.120\SetupBuilder' -Directory -ErrorAction SilentlyContinue | ForEach-Object { $d = $_; try { $sz = (Get-ChildItem $d.FullName -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; '{0,10:N0} MB  {1}' -f ($sz/1MB), $d.Name } catch { 'ERROR  ' + $d.Name } } } else { Write-Host 'SetupBuilder not found under U:\2026.3.0.120' }"
+    - echo "=== U drive total free space ==="
+    - powershell -NoProfile -Command "$d = Get-PSDrive U -ErrorAction SilentlyContinue; if ($d) { 'Used: {0:N0} GB  Free: {1:N0} GB' -f ($d.Used/1GB), ($d.Free/1GB) } else { Write-Host 'U: drive not accessible' }"
+    - echo "=== build/logs folder size ==="
+    - powershell -NoProfile -Command "if (Test-Path 'U:\2026.3.0.120\build\logs') { $sz = (Get-ChildItem 'U:\2026.3.0.120\build\logs' -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; 'build\logs size: {0:N0} MB  ({1} files)' -f ($sz/1MB), (Get-ChildItem 'U:\2026.3.0.120\build\logs' -Recurse -ErrorAction SilentlyContinue).Count } else { Write-Host 'build\logs not found' }"
+    - echo "=== Prior pipeline artifacts on C (GitLab runner workspace) ==="
+    - powershell -NoProfile -Command "if (Test-Path 'C:\GitLab-Runner\builds') { Get-ChildItem 'C:\GitLab-Runner\builds' -Directory -ErrorAction SilentlyContinue | ForEach-Object { $d = $_; try { $sz = (Get-ChildItem $d.FullName -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; '{0,8:N0} MB  {1}' -f ($sz/1MB), $d.Name } catch { 'ERROR  ' + $d.Name } } }"
+    - echo "=== DONE ==="
+  when: always
+  allow_failure: true

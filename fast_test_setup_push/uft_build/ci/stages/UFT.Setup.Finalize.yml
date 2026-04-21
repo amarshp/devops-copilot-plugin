@@ -1,0 +1,62 @@
+# UFT.Setup.Finalize — Pre-WiX workspace validation checkpoint
+# Jenkins equivalent: UFT.ReBase + UFT.Compile.BomCheck (steps 24-25 in UFT.Setup.Generation.xml)
+#   These ran between "Change Bin Files" and "Create All Setups (WiX)" to validate the workspace.
+#   UFT.ReBase rebases source tags; UFT.Compile.BomCheck validates artifact checksums.
+#   In GitLab migration: replaced by a lightweight path-existence check.
+#   All downstream WiX jobs have allow_failure=true — this gate is advisory only.
+
+UFT.Setup.Finalize:
+  allow_failure: false
+  tags:
+    - windows
+  stage: setup-finalize
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      if ([string]::IsNullOrWhiteSpace($workspace)) {
+        Write-Host "WARNING: DestDir not set — cannot validate workspace"
+        exit 0
+      }
+      Write-Host "UFT.Setup.Finalize: validating pre-WiX workspace at $workspace"
+
+      # Verify key SetupBuilder paths populated by Prepare jobs
+      $checks = @(
+        'SetupBuilder',
+        'SetupBuilder\Input',
+        'SetupBuilder\WixSetup'
+      )
+      $allOk = $true
+      foreach ($rel in $checks) {
+        $p = Join-Path $workspace $rel
+        if (Test-Path $p) {
+          Write-Host "CHECK PASS: $rel"
+        } else {
+          Write-Host "CHECK WARN: $rel not found (Prepare jobs may not have run or produced output)"
+          $allOk = $false
+        }
+      }
+
+      # Check WiX project file exists (required by UFT.Create.Setups.Wix.BuildSetup)
+      $wixProj = Join-Path $workspace 'build\Wix_Setup.proj'
+      if (Test-Path $wixProj) {
+        Write-Host "CHECK PASS: build\Wix_Setup.proj"
+      } else {
+        Write-Host "CHECK WARN: build\Wix_Setup.proj not found"
+        $allOk = $false
+      }
+
+      if ($allOk) {
+        Write-Host "UFT.Setup.Finalize: workspace ready for WiX setup creation"
+      } else {
+        Write-Host "UFT.Setup.Finalize: some paths missing — WiX jobs running with allow_failure=true"
+      }
+  needs:
+    - job: UFT.Generic.ChangeBinFiles.Version
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

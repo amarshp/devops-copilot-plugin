@@ -1,0 +1,190 @@
+stages:
+  # UFT.Agents.Build stages
+  - agents-build-number
+  - agents-remote-clean
+  - agents-remote-get-source-prereq
+  - agents-remote-get-source
+  - agents-remote-import-ops
+  - agents-remote-import-safari
+  - agents-remote-bomcheck
+  - agents-remote-publish
+  - agents-remote-safari
+  - agents-remote-put-label
+  - agents-remote-git-tags
+  - agents-robocopy-final
+  - agents-automation-engine
+  # UFT.Build Phase 1 stages
+  - build-prepare
+  - build-number
+  - build-get-source-prereq
+  - build-get-source
+  - build-get-source-final
+
+# uft-build-compute-version Ã¢â‚¬â€ NEW job (no direct Jenkins equivalent).
+# Translates the inline BatchFile and Shell builder block that runs inside UFT.Build
+# between Phase 2 (Build Number) and Phase 3 (Get Source), computing versioning variables.
+# Jenkins source: UFT.Build.xml BatchFile (~line 475) + Shell (~line 493); runs on u-cicd-nightly.
+#
+# Outputs (dotenv artifact):
+#   BuildNumber     Ã¢â‚¬â€ integer from UFT.BuildNumber.Creator
+#   BuildVersion    Ã¢â‚¬â€ Major.Minor.BuildNumber.Postfix  (or Major.Minor.Svcpack.BuildNumber)
+#   MsiProductVersion Ã¢â‚¬â€ last2(Major).Minor.BuildNumber.Postfix
+#   MajorMinorVer2  Ã¢â‚¬â€ Major.Minor  (or Major.(Minor+Svcpack) zero-padded)
+#   DestDir         Ã¢â‚¬â€ E:\FT\QTP\{Configuration}\{BuildVersion}
+#   Workspace_Home  Ã¢â‚¬â€ same as DestDir (used downstream by source provisioning)
+
+variables:
+  BuildMajorVersion:
+    value: "2026"
+    description: "Build major version full year (e.g. 2026)"
+  BuildMinorVersion:
+    value: "3"
+    description: "Build minor version (e.g. 3)"
+  BuildPostfix:
+    value: "0"
+    description: "Build postfix"
+  SvcpackVersion:
+    value: ""
+    description: "Service pack version (empty for standard builds)"
+  Configuration:
+    value: "win32_release"
+    description: "Build configuration"
+
+uft-build-compute-version:
+  stage: build-number
+  tags:
+    - ec2-runner
+  timeout: 5 minutes
+  needs:
+    - job: uft-build-env-setup
+      artifacts: true
+    - job: "UFT.BuildNumber.Creator"
+      artifacts: true
+      optional: true
+  script:
+    - |
+      # fast-resume: short-circuit when FAST_RESUME_REUSE_PREVIOUS_BUILD=true
+      if ($env:FAST_RESUME_REUSE_PREVIOUS_BUILD -eq 'true' -and
+          -not [string]::IsNullOrWhiteSpace($env:FAST_RESUME_REFERENCE_BUILD_NUMBER) -and
+          -not [string]::IsNullOrWhiteSpace($env:FAST_RESUME_REFERENCE_BUILD_VERSION) -and
+          -not [string]::IsNullOrWhiteSpace($env:FAST_RESUME_REFERENCE_DESTDIR)) {
+        $buildNumber  = $env:FAST_RESUME_REFERENCE_BUILD_NUMBER
+        $buildVersion = $env:FAST_RESUME_REFERENCE_BUILD_VERSION
+        $destDir      = $env:FAST_RESUME_REFERENCE_DESTDIR -replace '/', '\'
+        $major        = if ($env:BuildMajorVersion) { $env:BuildMajorVersion } else { '2026' }
+        $minor        = if ($env:BuildMinorVersion) { $env:BuildMinorVersion } else { '3' }
+        $postfix      = if ($env:BuildPostfix) { $env:BuildPostfix } else { '0' }
+        $svcpack      = $env:SvcpackVersion
+        $majorLast2   = if ($major.Length -ge 2) { $major.Substring($major.Length - 2) } else { $major }
+        if ([string]::IsNullOrEmpty($svcpack) -or $svcpack -eq '0') {
+          $msiProductVersion = "${majorLast2}.${minor}.${buildNumber}.${postfix}"
+          $majorMinorVer2    = "${major}.${minor}"
+        } else {
+          $msiProductVersion = "${majorLast2}.${minor}.${svcpack}.${buildNumber}"
+          $mn2    = [int]$minor + [int]$svcpack
+          $mn2Str = if ($mn2 -le 9) { "0${mn2}" } else { "${mn2}" }
+          $majorMinorVer2 = "${major}.${mn2Str}"
+        }
+        $chkOutTagName = $env:ChkOut_TagName
+        $destDirFwd    = $destDir.Replace('\', '/')
+        Write-Host "fast-resume: BuildNumber=$buildNumber BuildVersion=$buildVersion DestDir=$destDirFwd"
+        @(
+          "BuildNumber=$buildNumber",
+          "BuildVersion=$buildVersion",
+          "MsiProductVersion=$msiProductVersion",
+          "MajorMinorVer2=$majorMinorVer2",
+          "DestDir=$destDirFwd",
+          "Workspace_Home=$destDirFwd",
+          "ChkOut_TagName=$chkOutTagName"
+        ) | Set-Content build_compute.env -Encoding utf8
+        Write-Host 'build_compute.env written (fast-resume path)'
+        exit 0
+      }
+    - |
+      # Resolve labelforBN from uft-build-env-setup
+      $labelforBN = $env:labelforBN
+      if ([string]::IsNullOrEmpty($labelforBN)) { $labelforBN = $env:BuildLabel }
+      $config = $env:Configuration
+      if ([string]::IsNullOrEmpty($config)) { $config = "win32_release" }
+
+      # Resolve bnfileName (same logic as UFT.BuildNumber.Creator)
+      if ([string]::IsNullOrEmpty($config)) {
+        $bnFile = "${labelforBN}_BuildNumber.txt"
+      } else {
+        $bnFile = "${labelforBN}_${config}_BuildNumber.txt"
+      }
+
+      # Read BuildNumber from artifact file
+      $buildNumber = 0
+      if (Test-Path $bnFile) {
+        $content = Get-Content $bnFile -Raw
+        if ($content -match 'BuildNumber\s*=\s*(\d+)') {
+          $buildNumber = [int]$Matches[1]
+          Write-Host "Read BuildNumber=$buildNumber from $bnFile"
+        }
+      } else {
+        Write-Host "WARNING: $bnFile not found in workspace Ã¢â‚¬â€ using BuildNumber=0"
+      }
+
+      $major   = $env:BuildMajorVersion
+      $minor   = $env:BuildMinorVersion
+      $postfix = $env:BuildPostfix
+      $svcpack = $env:SvcpackVersion
+
+      # %BuildMajorVersion:~-2% = last 2 chars of major version (e.g. "2026" Ã¢â€ â€™ "26")
+      $majorLast2 = if ($major.Length -ge 2) { $major.Substring($major.Length - 2) } else { $major }
+
+      # BatchFile logic (UFT.Build.xml):
+      #   IF SvcpackVersion=="" Ã¢â€ â€™ BuildVersion=Major.Minor.BuildNumber.Postfix
+      #   IF SvcpackVersion!="" Ã¢â€ â€™ BuildVersion=Major.Minor.SvcpackVersion.BuildNumber
+      if ([string]::IsNullOrEmpty($svcpack) -or $svcpack -eq "0") {
+        $buildVersion      = "${major}.${minor}.${buildNumber}.${postfix}"
+        $msiProductVersion = "${majorLast2}.${minor}.${buildNumber}.${postfix}"
+        $majorMinorVer2    = "${major}.${minor}"
+      } else {
+        $buildVersion      = "${major}.${minor}.${svcpack}.${buildNumber}"
+        $msiProductVersion = "${majorLast2}.${minor}.${svcpack}.${buildNumber}"
+        # Shell logic: mn2 = BuildMinorVersion + SvcpackVersion; zero-pad if <= 9
+        $mn2    = [int]$minor + [int]$svcpack
+        $mn2Str = if ($mn2 -le 9) { "0${mn2}" } else { "${mn2}" }
+        $majorMinorVer2 = "${major}.${mn2Str}"
+      }
+
+      # DestDir: where source is robocopy'd for compilation (UFT.Build.xml param to UFT.Prepare.Git.Source)
+      $destDir = "E:\FT\QTP\${config}\${buildVersion}"
+
+      Write-Host "BuildVersion=$buildVersion"
+      Write-Host "DestDir=$destDir"
+      Write-Host "MsiProductVersion=$msiProductVersion"
+      Write-Host "MajorMinorVer2=$majorMinorVer2"
+      Write-Host "DestDir=$destDir"
+
+      # UNMIGRATABLE: SystemGroovy build.setDisplayName() has no GitLab equivalent.
+      Write-Host "Display name would be: #$($env:CI_PIPELINE_IID) | $buildVersion | $($env:BuildLabel) | $($env:Branch) | $config | $($env:Type)"
+
+      # Re-export ChkOut_TagName from uft-build-env-setup dotenv so it propagates
+      # transitively to Infra.UFT.Git.Src.Provision (which only downloads this job's
+      # artifacts). GitLab dotenv vars do NOT chain transitively â€” must be re-exported.
+      $chkOutTagName = $env:ChkOut_TagName
+      Write-Host "ChkOut_TagName=$chkOutTagName"
+
+      # Use forward slashes for path values in dotenv â€” GitLab's dotenv parser
+      # mis-handles Windows backslashes as escape sequences, causing DestDir to
+      # arrive as null in downstream jobs. Downstream scripts normalise back to \
+      $destDirFwd = $destDir -replace '\\', '/'
+      @(
+        "BuildNumber=$buildNumber",
+        "BuildVersion=$buildVersion",
+        "MsiProductVersion=$msiProductVersion",
+        "MajorMinorVer2=$majorMinorVer2",
+        "DestDir=$destDirFwd",
+        "Workspace_Home=E:/FT/QTP/${config}/${buildVersion}",
+        "ChkOut_TagName=$chkOutTagName"
+      ) | Set-Content build_compute.env -Encoding utf8
+  artifacts:
+    reports:
+      dotenv: build_compute.env
+    paths:
+      - build_compute.env
+    expire_in: 5 days
+

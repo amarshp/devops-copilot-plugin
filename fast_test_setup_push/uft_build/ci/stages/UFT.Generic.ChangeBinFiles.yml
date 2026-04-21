@@ -1,0 +1,131 @@
+# UFT.Generic.ChangeBinFiles — Apply binary file attribute changes (4 parallel VBScript jobs)
+# Jenkins: UFT.Generic.Change.Bin.Files.{Copyrights|CompanyName|Attribute|Version} (FreeStyle)
+#   Each job calls a VBScript from DevOpsScriptsDir with an InputList and a value.
+#   VBScripts: ChangeFilesCopyrights.vbs, ChangeFilesCompanyName.vbs,
+#              ChangeFilesAttribute.vbs, ChangeFilesVersion.vbs
+#
+# DevOpsScriptsDir: set via Jenkins global env-inject; default I:\DevOps\DevopsScripts
+#   If not set or not found the job logs a warning and exits 0 (allow_failure covers failures).
+#
+# Execution order from UFT.Setup.Generation.xml (steps 20-23):
+#   "Change Copyrights"  → Binaries_Copyrights_To_Change_List_After_MLU.txt
+#   "Change Company name"→ Binaries_CompanyName_To_Change_List_After_MLU.txt, CompanyName=OpenText
+#   "Change Product name"→ Binaries_Version_To_Change.txt, AttributeName=ProductName
+#   "Change Binaries Files Version" → Binaries_Version_To_Change.txt, NewVersion=BuildVersion
+
+.change-bin-files-defaults:
+  allow_failure: false
+  tags:
+    - windows
+  variables:
+    GIT_STRATEGY: none
+    DevOpsScriptsDir: "I:\\DevOps\\DevopsScripts"
+
+UFT.Generic.ChangeBinFiles.Copyrights:
+  extends: .change-bin-files-defaults
+  stage: setup-bin-changes
+  variables:
+    InputList: 'build\info\Binaries_Copyrights_To_Change_List_After_MLU.txt'
+    CopyRightsValue: 'Copyright 1992 - 2026 OpenText.'
+    RootPath: ''
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace  = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      $inputList  = Join-Path $workspace $env:InputList
+      $vbs = "$env:DevOpsScriptsDir\ChangeFilesCopyrights.vbs"
+      Write-Host "ChangeBinFiles.Copyrights: InputList=$inputList CopyRightsValue=$($env:CopyRightsValue)"
+      if ((Test-Path $inputList) -and (Test-Path $vbs)) {
+        cscript.exe "$vbs" "$inputList" "$env:RootPath" "$env:CopyRightsValue"
+      } else {
+        Write-Host "WARNING: InputList or VBScript not found — skipping Copyrights change"
+      }
+  needs:
+    - job: UFT.Prepare.AllSetup.UFTSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Generic.ChangeBinFiles.CompanyName:
+  extends: .change-bin-files-defaults
+  stage: setup-bin-changes
+  variables:
+    InputList: 'build\info\Binaries_CompanyName_To_Change_List_After_MLU.txt'
+    CompanyName: 'OpenText'
+    RootPath: ''
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace  = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      $inputList  = Join-Path $workspace $env:InputList
+      $vbs = "$env:DevOpsScriptsDir\ChangeFilesCompanyName.vbs"
+      Write-Host "ChangeBinFiles.CompanyName: InputList=$inputList CompanyName=$($env:CompanyName)"
+      if ((Test-Path $inputList) -and (Test-Path $vbs)) {
+        cscript.exe "$vbs" "$inputList" "$env:RootPath" "$env:CompanyName"
+      } else {
+        Write-Host "WARNING: InputList or VBScript not found — skipping CompanyName change"
+      }
+  needs:
+    - job: UFT.Prepare.AllSetup.UFTSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Generic.ChangeBinFiles.Attribute:
+  extends: .change-bin-files-defaults
+  stage: setup-bin-changes
+  variables:
+    InputList: 'build\info\Binaries_Version_To_Change.txt'
+    AttributeName: 'ProductName'
+    AttributeValue: 'OpenText Unified Functional Testing'
+    RootPath: ''
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace  = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      $inputList  = Join-Path $workspace $env:InputList
+      $vbs = "$env:DevOpsScriptsDir\ChangeFilesAttribute.vbs"
+      Write-Host "ChangeBinFiles.Attribute: InputList=$inputList AttributeName=$($env:AttributeName)"
+      if ((Test-Path $inputList) -and (Test-Path $vbs)) {
+        cscript.exe "$vbs" "$inputList" "$env:RootPath" "$env:AttributeName" "$env:AttributeValue"
+      } else {
+        Write-Host "WARNING: InputList or VBScript not found — skipping Attribute change"
+      }
+  needs:
+    - job: UFT.Prepare.AllSetup.UFTSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Generic.ChangeBinFiles.Version:
+  extends: .change-bin-files-defaults
+  stage: setup-bin-changes
+  variables:
+    InputList: 'build\info\Binaries_Version_To_Change.txt'
+    RootPath: ''
+  script:
+    - |
+      $ErrorActionPreference = "Stop"
+      $workspace  = ($env:DestDir -replace '/', '\').TrimEnd('\')
+      $inputList  = Join-Path $workspace $env:InputList
+      $newVersion = $env:BuildVersion
+      $vbs = "$env:DevOpsScriptsDir\ChangeFilesVersion.vbs"
+      Write-Host "ChangeBinFiles.Version: InputList=$inputList NewVersion=$newVersion"
+      if ((Test-Path $inputList) -and (Test-Path $vbs)) {
+        cscript.exe "$vbs" "$inputList" "$newVersion"
+      } else {
+        Write-Host "WARNING: InputList or VBScript not found — skipping Version change"
+      }
+  needs:
+    - job: UFT.Prepare.AllSetup.UFTSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

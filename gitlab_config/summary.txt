@@ -1,0 +1,90 @@
+GitLab Project Configuration Snapshot
+==================================================
+Project ID : 128090
+GitLab URL : https://gitlab.otxlab.net/
+Branch     : main
+
+CI Files   : 15
+  - .gitlab-ci.yml
+  - uft_build/ci/stages/INFRA.Net.Use.yml
+  - uft_build/ci/stages/uft-build-env-setup.yml
+  - uft_build/ci/stages/uft-build-compute-version.yml
+  - uft_build/ci/stages/INFRA.UFT.MSBuild.yml
+  - uft_build/ci/stages/UFT.BuildNumber.Creator.yml
+  - uft_build/ci/stages/fast-resume-bootstrap.yml
+  - uft_build/ci/stages/UFT.Setup.ALMAndBTP.yml
+  - uft_build/ci/stages/UFT.Prepare.MLUSetup.yml
+  - uft_build/ci/stages/UFT.Prepare.AllSetup.yml
+  - uft_build/ci/stages/UFT.Generic.ChangeBinFiles.yml
+  - uft_build/ci/stages/UFT.Create.MLU.yml
+  - uft_build/ci/stages/UFT.Setup.Finalize.yml
+  - uft_build/ci/stages/UFT.Create.Setups.Wix.yml
+  - uft_build/ci/stages/UFT.Setup.Publish.yml
+
+Variables  : 9 (5 masked)
+Runners    : 63
+  - bp2-docker-l001 [online] tags: (no tags)
+  - gitlab-runner-gitlab-runner-8479fffcd4-q9mn4 [stale] tags: (no tags)
+  - gitlab-runner-gitlab-runner-8479fffcd4-q9mn4 [stale] tags: (no tags)
+  - gitlab-runner-gitlab-runner-8479fffcd4-q9mn4 [stale] tags: (no tags)
+  - gitlab-runner-gitlab-runner-8479fffcd4-q9mn4 [stale] tags: (no tags)
+  - gitlab-runner-gitlab-runner-8479fffcd4-59pwc [stale] tags: (no tags)
+  - OT2-WIN-03 [stale] tags: (no tags)
+  - bp2ubmglci01 [online] tags: (no tags)
+  - BEACON-4-WIN [stale] tags: (no tags)
+  - linux-ci-deployment-16 [stale] tags: (no tags)
+  - gitlab-runner-gitlab-runner-755d8477f9-l46xz [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-5zjmk [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-5zjmk [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-5zjmk [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-4n96v [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-4n96v [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-v8c26 [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-hfvdf [stale] tags: (no tags)
+  - bp2ubmglci02 [online] tags: (no tags)
+  - bp2ubmglci03 [online] tags: (no tags)
+  - bp2ubmglci04 [online] tags: (no tags)
+  - bp2ubmglci05 [online] tags: (no tags)
+  - bp2ubmglci06 [online] tags: (no tags)
+  - bp2ubmglci07 [online] tags: (no tags)
+  - bp2ubmglci08 [online] tags: (no tags)
+  - bp2ubmglci09 [online] tags: (no tags)
+  - bp2ubmglci10 [online] tags: (no tags)
+  - gitlab-runner-69cfd74c87-g29k9 [stale] tags: (no tags)
+  - gitlab-runner-69cfd74c87-tgtjp [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - ba-build1-fortify-sonarqube [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - gitlab-runner-d7bd58d4-lx5jj [stale] tags: (no tags)
+  - ubmcluster test runner deployment [stale] tags: (no tags)
+  - ubmcluster [stale] tags: (no tags)
+  - ubm shared linux cluster [stale] tags: (no tags)
+  - ubm shared windows container runners [online] tags: (no tags)
+  - performance automation test [online] tags: (no tags)
+  - Gitlab PAP [online] tags: (no tags)
+  - BP2_001 Gitlab PAP [online] tags: (no tags)
+  - ubmcluster [online] tags: (no tags)
+  - runner for windows 2022 docker image building [online] tags: (no tags)
+  -  [online] tags: (no tags)
+  -  [online] tags: (no tags)
+  -  [stale] tags: (no tags)
+  - waterloo production dynamic runner [online] tags: (no tags)
+  -  [online] tags: (no tags)
+  - TAA runner open for both HMF and OT [online] tags: (no tags)
+  -  [online] tags: (no tags)
+  -  [online] tags: (no tags)
+  - EC2 Runner [online] tags: (no tags)
+  - TAA runner open for both HMF and OT and restricted for external traffic [online] tags: (no tags)
+  - gitlab runner windows opa [online] tags: (no tags)
+  -  [online] tags: (no tags)
+
+Schedules  : 0

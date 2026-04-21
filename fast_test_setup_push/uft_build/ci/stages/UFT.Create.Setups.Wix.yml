@@ -1,0 +1,41 @@
+# UFT.Create.Setups.Wix — Build WiX installer MSIs and PFTW package
+# Jenkins: UFT.Create.All.Setups.Wix (MultiJobProject) — "09 - Create the Setup"
+#   Phase "Create All Setups - Wix": INFRA.UFT.MSBuild
+#     MSBProj=build\Wix_Setup.proj, MSBTarget=BuildSetup, MaxCPUCount=4
+#   Code-sign phases (AUJAS/HPCSS/SignHP/CodeSeal) — omitted; allow_failure=true
+#   Phase "Create PFTW": INFRA.UFT.MSBuild
+#     MSBProj=build\Wix_Setup.proj, MSBTarget=CreatePFTW, MaxCPUCount=4
+
+UFT.Create.Setups.Wix.BuildSetup:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-create-wix
+  variables:
+    MSBProj: 'build\Wix_Setup.proj'
+    MSBTarget: "BuildSetup"
+    JobName: "UFT.Create.Setups.Wix.BuildSetup"
+    MSBProj_For_Consumption: 'build\Wix_Setup.proj'
+  needs:
+    - job: UFT.Setup.Finalize
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Create.Setups.Wix.CreatePFTW:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-create-wix
+  variables:
+    MSBProj: 'build\Wix_Setup.proj'
+    MSBTarget: "CreatePFTW"
+    JobName: "UFT.Create.Setups.Wix.CreatePFTW"
+    MSBProj_For_Consumption: 'build\Wix_Setup.proj'
+  needs:
+    - job: UFT.Create.Setups.Wix.BuildSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true

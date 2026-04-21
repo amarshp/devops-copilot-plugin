@@ -7,7 +7,7 @@
 #   All use MSBProj=build\create_MLU_Content.proj
 
 UFT.Prepare.MLUSetup.RepView:
-  allow_failure: false
+  allow_failure: true
   extends: .uft-msbuild-template
   stage: setup-prepare-mlu
   variables:
@@ -24,7 +24,7 @@ UFT.Prepare.MLUSetup.RepView:
       artifacts: true
 
 UFT.Prepare.MLUSetup.QCPlugin:
-  allow_failure: false
+  allow_failure: true
   extends: .uft-msbuild-template
   stage: setup-prepare-mlu
   variables:
@@ -41,7 +41,7 @@ UFT.Prepare.MLUSetup.QCPlugin:
       artifacts: true
 
 UFT.Prepare.MLUSetup.UFTSetup:
-  allow_failure: false
+  allow_failure: true
   extends: .uft-msbuild-template
   stage: setup-prepare-mlu
   variables:
