@@ -1,0 +1,616 @@
+# UFT.Create.Setups.Wix — Wix-only fast-resume variant
+# Identical to the main UFT.Create.Setups.Wix.yml except:
+#   - BuildSetup.needs: uses fast-resume-wix-bootstrap instead of UFT.Setup.Finalize
+# Jenkins: UFT.Create.All.Setups.Wix (MultiJobProject) — "09 - Create the Setup"
+#   Phase "Create All Setups - Wix": INFRA.UFT.MSBuild
+#     MSBProj=build\Wix_Setup.proj, MSBTarget=BuildSetup, MaxCPUCount=4
+#   Phase "Create PFTW": INFRA.UFT.MSBuild
+#     MSBProj=build\Wix_Setup.proj, MSBTarget=CreatePFTW, MaxCPUCount=4
+
+UFT.Create.Setups.Wix.BuildSetup:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-create-wix
+  variables:
+    MSBuildVersion: "2022"  # Wix CA projects require VS2022/Roslyn; AllSetup jobs stay on 2015
+    MSBProj: 'build\Wix_Setup.proj'
+    MSBTarget: "BuildSetup"
+    JobName: "UFT.Create.Setups.Wix.BuildSetup"
+    MSBProj_For_Consumption: 'build\Wix_Setup.proj'
+  before_script:
+    - |
+      # ── Ensure Workspace_Home is set and normalized ───────────────────────
+      if (-not $env:Workspace_Home -or [string]::IsNullOrWhiteSpace($env:Workspace_Home)) {
+        Write-Host "DEBUG: Workspace_Home is empty; falling back to CI_PROJECT_DIR: $env:CI_PROJECT_DIR"
+        $env:Workspace_Home = $env:CI_PROJECT_DIR
+      } else {
+        Write-Host "DEBUG: Workspace_Home (pre-normalize): $env:Workspace_Home"
+      }
+      $env:Workspace_Home = $env:Workspace_Home -replace '/', '\\'
+      Write-Host "DEBUG: Workspace_Home (normalized): $env:Workspace_Home"
+    - |
+      # ── Newtonsoft.Json.dll: ensure net40-compatible version ──────────────
+      # UFT_CA.csproj targets .NETFramework 4.0. The DLL on NAS at
+      #   SetupBuilder\WixSetup\Resources\CA\UFT_CA\Newtonsoft.Json.dll
+      # may be a net45 build (stale from QTP output), causing MSB3274 + CS0246.
+      #
+      # Jenkins uses the source-tree copy which is net40. We must guarantee
+      # a net40-compatible DLL is in place before MSBuild runs.
+      #
+      # Strategy: download Newtonsoft.Json nupkg from NuGet.org (it's a ZIP),
+      # extract lib/net40/Newtonsoft.Json.dll, overwrite whatever is on NAS.
+      # Fallbacks: NuGet cache, packages dir, nuget.exe install.
+      $dest = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\CA\UFT_CA\Newtonsoft.Json.dll'
+      $found = $false
+
+      # ── Attempt 1: Download from NuGet.org (most reliable) ────────────────
+      $nupkgUrl = 'https://www.nuget.org/api/v2/package/Newtonsoft.Json/13.0.3'
+      $tmpNupkg = Join-Path $env:TEMP 'Newtonsoft.Json.13.0.3.nupkg'
+      $tmpZip = Join-Path $env:TEMP 'Newtonsoft.Json.13.0.3.zip'
+      $tmpDir = Join-Path $env:TEMP 'Newtonsoft.Json.13.0.3'
+      try {
+        Write-Host "Downloading Newtonsoft.Json 13.0.3 nupkg from NuGet.org..."
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $nupkgUrl -OutFile $tmpNupkg -UseBasicParsing -TimeoutSec 30
+        # Rename .nupkg to .zip - PowerShell 5.1 Expand-Archive only accepts .zip
+        Copy-Item $tmpNupkg $tmpZip -Force
+        if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
+        Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
+        $net40Dll = Join-Path $tmpDir 'lib\net40\Newtonsoft.Json.dll'
+        if (Test-Path $net40Dll) {
+          Copy-Item $net40Dll $dest -Force
+          Write-Host "Newtonsoft.Json.dll: installed net40 build from NuGet.org"
+          $found = $true
+        } else {
+          Write-Host "WARNING: net40 DLL not found in nupkg (expected at lib\net40\)"
+          # Try net20 as fallback (also compatible with net40)
+          $net20Dll = Join-Path $tmpDir 'lib\net20\Newtonsoft.Json.dll'
+          if (Test-Path $net20Dll) {
+            Copy-Item $net20Dll $dest -Force
+            Write-Host "Newtonsoft.Json.dll: installed net20 build from NuGet.org (compatible with net40)"
+            $found = $true
+          }
+        }
+      } catch {
+        Write-Host "WARNING: NuGet.org download failed: $($_.Exception.Message)"
+      }
+
+      # ── Attempt 2: NuGet global packages cache ────────────────────────────
+      if (-not $found) {
+        $nugetCandidates = @(
+          "$env:USERPROFILE\.nuget\packages\newtonsoft.json\*\lib\net40\Newtonsoft.Json.dll",
+          "$env:USERPROFILE\.nuget\packages\newtonsoft.json\*\lib\net20\Newtonsoft.Json.dll"
+        )
+        foreach ($pattern in $nugetCandidates) {
+          $hits = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($hits) {
+            Copy-Item $hits.FullName $dest -Force
+            Write-Host "Newtonsoft.Json.dll: copied from NuGet cache: $($hits.FullName)"
+            $found = $true
+            break
+          }
+        }
+      }
+
+      # ── Attempt 3: nuget.exe install (if available) ───────────────────────
+      if (-not $found) {
+        $nugetExe = Get-Command nuget.exe -ErrorAction SilentlyContinue
+        if ($nugetExe) {
+          $pkgDir = Join-Path $env:TEMP 'nuget_newtonsoft'
+          & nuget.exe install Newtonsoft.Json -Version 13.0.3 -OutputDirectory $pkgDir -Framework net40 -NonInteractive 2>&1 | Out-Null
+          $installed = Get-ChildItem "$pkgDir\Newtonsoft.Json*\lib\net40\Newtonsoft.Json.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($installed) {
+            Copy-Item $installed.FullName $dest -Force
+            Write-Host "Newtonsoft.Json.dll: installed via nuget.exe"
+            $found = $true
+          }
+        }
+      }
+
+      # ── Validate result ───────────────────────────────────────────────────
+      if (Test-Path $dest) {
+        $fileVer = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($dest)
+        Write-Host "Newtonsoft.Json.dll version: $($fileVer.FileVersion), size: $((Get-Item $dest).Length) bytes"
+        try {
+          $bytes = [System.IO.File]::ReadAllBytes($dest)
+          $asm = [System.Reflection.Assembly]::Load($bytes)
+          $tfmAttr = $asm.GetCustomAttributes([System.Runtime.Versioning.TargetFrameworkAttribute], $false)
+          if ($tfmAttr -and $tfmAttr.Count -gt 0) {
+            $fw = $tfmAttr[0].FrameworkName
+            Write-Host "Newtonsoft.Json.dll target framework: $fw"
+            if ($fw -match 'Version=v4\.[5-9]') {
+              Write-Host "ERROR: Newtonsoft.Json.dll targets net45+ but UFT_CA.csproj needs net40!"
+              Write-Host "Build will likely fail with MSB3274 + CS0246."
+            }
+          } else {
+            Write-Host "Newtonsoft.Json.dll: no TargetFramework attribute (net20/net35/net40 - OK for net40 project)"
+          }
+        } catch {
+          Write-Host "Newtonsoft.Json.dll: assembly inspection failed: $($_.Exception.Message)"
+        }
+      } else {
+        Write-Error "FATAL: Newtonsoft.Json.dll not found at $dest - UFT_CA.csproj will fail."
+        exit 1
+      }
+
+      # Clear UFT_CA obj cache to force fresh ResolveAssemblyReference
+      $uftCaObj = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\CA\UFT_CA\obj'
+      if (Test-Path $uftCaObj) {
+        Remove-Item $uftCaObj -Recurse -Force
+        Write-Host "Cleared UFT_CA obj cache (force fresh ResolveAssemblyReference)"
+      }
+      $sharedObj = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\CA\SharedCAUtils\obj'
+      if (Test-Path $sharedObj) {
+        Remove-Item $sharedObj -Recurse -Force
+        Write-Host "Cleared SharedCAUtils obj cache"
+      }
+
+      # Aggressive Newtonsoft fix: local copy + csproj patch + Directory.Build.props
+      $localNewtonsoftDir = "$env:TEMP\Newtonsoft_net40"
+      if (-not (Test-Path $localNewtonsoftDir)) { New-Item -ItemType Directory -Path $localNewtonsoftDir -Force | Out-Null }
+      Copy-Item $dest "$localNewtonsoftDir\Newtonsoft.Json.dll" -Force
+      Write-Host "Copied net40 Newtonsoft to local: $localNewtonsoftDir"
+
+      $localDll = "$localNewtonsoftDir\Newtonsoft.Json.dll"
+      $localBytes = [System.IO.File]::ReadAllBytes($localDll)
+      $localAsm = [System.Reflection.Assembly]::Load($localBytes)
+      $localTfm = $localAsm.GetCustomAttributes([System.Runtime.Versioning.TargetFrameworkAttribute], $false)
+      if ($localTfm -and $localTfm.Count -gt 0) { Write-Host "Local Newtonsoft TFM: $($localTfm[0].FrameworkName)" }
+
+      $csprojPath = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\CA\UFT_CA\UFT_CA.csproj'
+      if (Test-Path $csprojPath) {
+        $csprojContent = [IO.File]::ReadAllText($csprojPath, [Text.Encoding]::UTF8)
+        Write-Host "UFT_CA.csproj Newtonsoft references BEFORE patch:"
+        [regex]::Matches($csprojContent, '(?s)<Reference[^>]*Newtonsoft[^>]*>.*?</Reference>') | ForEach-Object { Write-Host "  $_" }
+
+        $hintPaths = [regex]::Matches($csprojContent, '<HintPath>([^<]*Newtonsoft[^<]*)</HintPath>')
+        foreach ($m in $hintPaths) {
+          $oldHint = $m.Value
+          $newHint = '<HintPath>' + $localDll + '</HintPath>'
+          $csprojContent = $csprojContent.Replace($oldHint, $newHint)
+          Write-Host "Patched HintPath: $oldHint -> $newHint"
+        }
+
+        if ($csprojContent -match '(<Reference[^>]*Newtonsoft[^>]*>)' -and $csprojContent -notmatch '<Private>True</Private>[\s\S]*Newtonsoft') {
+          $csprojContent = $csprojContent -replace '(<HintPath>[^<]*Newtonsoft[^<]*</HintPath>)', "`$1`r`n      <Private>True</Private>`r`n      <SpecificVersion>False</SpecificVersion>"
+        }
+
+        [IO.File]::WriteAllText($csprojPath, $csprojContent, [Text.Encoding]::UTF8)
+        Write-Host "UFT_CA.csproj patched with local Newtonsoft HintPath"
+
+        $csprojVerify = [IO.File]::ReadAllText($csprojPath, [Text.Encoding]::UTF8)
+        Write-Host "UFT_CA.csproj Newtonsoft references AFTER patch:"
+        [regex]::Matches($csprojVerify, '(?s)<Reference[^>]*Newtonsoft[^>]*>.*?</Reference>') | ForEach-Object { Write-Host "  $_" }
+      }
+
+      $dbpPath = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Directory.Build.props'
+      $dbpContent = '<Project>' + "`r`n" + '  <PropertyGroup>' + "`r`n" + '    <ReferencePath>' + $localNewtonsoftDir + ';$(ReferencePath)</ReferencePath>' + "`r`n" + '  </PropertyGroup>' + "`r`n" + '</Project>'
+      Set-Content -Path $dbpPath -Value $dbpContent -Encoding UTF8 -NoNewline
+      Write-Host "Created Directory.Build.props at: $dbpPath"
+      Write-Host "  ReferencePath includes: $localNewtonsoftDir"
+
+      $wixBase = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup'
+      Get-ChildItem -Path $wixBase -Filter 'Newtonsoft.Json.dll' -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.FullName -ne $localDll -and $_.FullName -ne $dest) {
+          Copy-Item $dest $_.FullName -Force
+          Write-Host "Replaced Newtonsoft: $($_.FullName)"
+        }
+      }
+      $packagesBase = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\packages'
+      if (Test-Path $packagesBase) {
+        Get-ChildItem -Path $packagesBase -Filter 'Newtonsoft.Json.dll' -Recurse | ForEach-Object {
+          Copy-Item $dest $_.FullName -Force
+          Write-Host "Replaced packages Newtonsoft: $($_.FullName)"
+        }
+      }
+    - |
+        # XmlTranslator: the shared NAS workspace can keep a poisoned Program.cs
+        # from earlier debug patches. Reset the source, compile a clean exe, then
+        # force wixproj files to invoke the local copy.
+        $xtGitPath  = 'SetupBuilder/WixSetup/Resources/Tools/XmlTranslator'
+        $xtBase     = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\Tools\XmlTranslator'
+        $xtProgram  = Join-Path $xtBase 'Program.cs'
+        $xtBin      = Join-Path $xtBase 'bin\Release\XmlTranslator.exe'
+        $xtObj      = Join-Path $xtBase 'obj'
+        $xtTools    = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\resources\Binaries\Tools\XmlTranslator.exe'
+        $xtToolsCfg = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\resources\Binaries\Tools\XmlTranslator.exe.config'
+        $localDir   = "$env:TEMP\XmlTranslator_local"
+
+        $localExe   = Join-Path $localDir 'XmlTranslator.exe'
+        $localCfg   = Join-Path $localDir 'XmlTranslator.exe.config'
+        New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+
+        $restoredFromGit = $false
+        $gitExe = Get-Command git.exe -ErrorAction SilentlyContinue
+        if ($gitExe -and (Test-Path (Join-Path $env:Workspace_Home '.git'))) {
+          & $gitExe.Path -C $env:Workspace_Home checkout -- $xtGitPath 2>&1 | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -eq 0) {
+            $restoredFromGit = $true
+            Write-Host "Restored XmlTranslator source from git HEAD"
+          } else {
+            Write-Host "WARNING: git checkout for XmlTranslator failed with exit code $LASTEXITCODE"
+          }
+        } else {
+          Write-Host "WARNING: git.exe or .git directory unavailable; falling back to marker cleanup"
+        }
+
+        $xtAppCfg = Join-Path $xtBase 'App.config'
+        $configXml = @(
+          '<?xml version="1.0" encoding="utf-8"?>',
+          '<configuration>',
+          '  <runtime>',
+          '    <loadFromRemoteSources enabled="true"/>',
+          '  </runtime>',
+          '</configuration>'
+        ) -join "`r`n"
+        Set-Content -Path $xtAppCfg -Value $configXml -Encoding UTF8 -NoNewline
+        Write-Host "App.config ready with loadFromRemoteSources"
+
+        $skipCompileAndReuse = -not $restoredFromGit -and ((Test-Path $localExe) -or (Test-Path $xtTools))
+        if ($skipCompileAndReuse) {
+          if (-not (Test-Path $localExe) -and (Test-Path $xtTools)) {
+            Copy-Item $xtTools $localExe -Force
+            Write-Host "Copied shared XmlTranslator.exe into preserved local cache"
+          }
+          if (-not (Test-Path $localCfg)) {
+            if (Test-Path $xtToolsCfg) {
+              Copy-Item $xtToolsCfg $localCfg -Force
+            } else {
+              Set-Content -Path $localCfg -Value $configXml -Encoding UTF8 -NoNewline
+            }
+          }
+          if (-not (Test-Path $xtTools)) {
+            Copy-Item $localExe $xtTools -Force
+          }
+          if (-not (Test-Path $xtToolsCfg)) {
+            if (Test-Path $localCfg) {
+              Copy-Item $localCfg $xtToolsCfg -Force
+            } else {
+              Set-Content -Path $xtToolsCfg -Value $configXml -Encoding UTF8 -NoNewline
+            }
+          }
+          Write-Host "Reusing preserved XmlTranslator executable because git restore is unavailable"
+        } else {
+          foreach ($p in @($xtBin, "$xtBase\bin\Release\XmlTranslator.exe.config")) {
+            if (Test-Path $p) {
+              Remove-Item $p -Force -ErrorAction SilentlyContinue
+              Write-Host "Deleted: $p"
+            }
+          }
+          if (Test-Path $xtObj) {
+            Remove-Item $xtObj -Recurse -Force
+            Write-Host "Deleted XmlTranslator obj cache"
+          }
+          if (-not $restoredFromGit -and (Test-Path $xtProgram)) {
+            $programCs = [IO.File]::ReadAllText($xtProgram, [Text.Encoding]::UTF8)
+            $cleanedProgramCs = $programCs
+            $cleanedProgramCs = [regex]::Replace(
+              $cleanedProgramCs,
+              '(?ms)\s*try\s*\{\s*//\s*NAS_SAFETY_NET.*?Console\.Error\.WriteLine\("NAS_SAFETY_NET caught: "\s*\+\s*.*?\);\s*throw;\s*\}\s*',
+              "`r`n"
+            )
+            $cleanedProgramCs = [regex]::Replace($cleanedProgramCs, '(?m)^.*NAS_SAFETY_NET.*$\r?\n?', '')
+            if ($cleanedProgramCs -ne $programCs) {
+              [IO.File]::WriteAllText($xtProgram, $cleanedProgramCs, [Text.Encoding]::UTF8)
+              Write-Host "Removed stale NAS_SAFETY_NET markers from Program.cs"
+            } else {
+              Write-Host "No removable NAS_SAFETY_NET markers found in Program.cs fallback path"
+            }
+          }
+
+          Write-Host "Compiling XmlTranslator (before MSBuild BuildSetup)..."
+          $msbuild = 'C:\VS220\MSBuild\Current\Bin\MSBuild.exe'
+          $csproj = Join-Path $xtBase 'XmlTranslator.csproj'
+          & $msbuild $csproj /t:Build /p:Configuration=Release /p:Platform=x86 /p:PostBuildEvent= /v:minimal
+          $xtCompileOk = ($LASTEXITCODE -eq 0 -and (Test-Path $xtBin))
+          if (-not $xtCompileOk -and (Test-Path $xtProgram)) {
+            $retryProgramCs = [IO.File]::ReadAllText($xtProgram, [Text.Encoding]::UTF8)
+            if ($retryProgramCs -match 'StringBuilder\s+exMsgBuilder\s*=\s*new\s+StringBuilder\(ex\.Message\);') {
+              $canonicalCatchTail = @(
+                '            catch (Exception ex)',
+                '            {',
+                '                StringBuilder exMsgBuilder = new StringBuilder(ex.Message);',
+                '                Exception innerException = ex.InnerException;',
+                '                while (innerException != null)',
+                '                {',
+                '                    exMsgBuilder.Append(" >> ");',
+                '                    exMsgBuilder.Append(innerException.Message);',
+                '                    innerException = innerException.InnerException;',
+                '                }',
+                '                Console.Error.WriteLine(exMsgBuilder.ToString());',
+                '                Environment.Exit(1);',
+                '            }',
+                '        }',
+                '    }',
+                '}',
+                '}',
+                ''
+              ) -join "`r`n"
+              $repairedProgramCs = [regex]::Replace(
+                $retryProgramCs,
+                'catch\s*\(\s*Exception\s+ex\s*\)\s*\{[\s\S]*$',
+                $canonicalCatchTail
+              )
+              if ($repairedProgramCs -ne $retryProgramCs) {
+                [IO.File]::WriteAllText($xtProgram, $repairedProgramCs, [Text.Encoding]::UTF8)
+                foreach ($p in @($xtBin, "$xtBase\bin\Release\XmlTranslator.exe.config")) {
+                  if (Test-Path $p) {
+                    Remove-Item $p -Force -ErrorAction SilentlyContinue
+                  }
+                }
+                if (Test-Path $xtObj) {
+                  Remove-Item $xtObj -Recurse -Force
+                }
+                Write-Host "Applied strong Program.cs tail repair; retrying XmlTranslator compile"
+                & $msbuild $csproj /t:Build /p:Configuration=Release /p:Platform=x86 /p:PostBuildEvent= /v:minimal
+                $xtCompileOk = ($LASTEXITCODE -eq 0 -and (Test-Path $xtBin))
+              }
+            }
+          }
+          if ($xtCompileOk) {
+            Write-Host "XmlTranslator compiled successfully"
+            Copy-Item $xtBin $localExe -Force
+            $builtCfg = Join-Path $xtBase 'bin\Release\XmlTranslator.exe.config'
+            if (Test-Path $builtCfg) {
+              Copy-Item $builtCfg $localCfg -Force
+            } else {
+              Set-Content -Path $localCfg -Value $configXml -Encoding UTF8 -NoNewline
+            }
+            Copy-Item $localExe $xtTools -Force
+            if (Test-Path $localCfg) {
+              Copy-Item $localCfg $xtToolsCfg -Force
+            } else {
+              Set-Content -Path $xtToolsCfg -Value $configXml -Encoding UTF8 -NoNewline
+            }
+            Write-Host "Copied XmlTranslator exe + config to local and tools paths"
+          } elseif (Test-Path $localExe) {
+            if (-not (Test-Path $localCfg)) {
+              if (Test-Path $xtToolsCfg) {
+                Copy-Item $xtToolsCfg $localCfg -Force
+              } else {
+                Set-Content -Path $localCfg -Value $configXml -Encoding UTF8 -NoNewline
+              }
+            }
+            if (-not (Test-Path $xtTools)) {
+              Copy-Item $localExe $xtTools -Force
+            }
+            if (-not (Test-Path $xtToolsCfg)) {
+              if (Test-Path $localCfg) {
+                Copy-Item $localCfg $xtToolsCfg -Force
+              } else {
+                Set-Content -Path $xtToolsCfg -Value $configXml -Encoding UTF8 -NoNewline
+              }
+            }
+            Write-Host "WARNING: XmlTranslator compile failed; reusing preserved local exe"
+          } elseif (Test-Path $xtTools) {
+            Copy-Item $xtTools $localExe -Force
+            if (Test-Path $xtToolsCfg) {
+              Copy-Item $xtToolsCfg $localCfg -Force
+            } else {
+              Set-Content -Path $localCfg -Value $configXml -Encoding UTF8 -NoNewline
+            }
+            Write-Host "WARNING: XmlTranslator compile failed; reusing existing tools exe from shared workspace"
+          } else {
+            Write-Error "FATAL: XmlTranslator compile failed and no reusable tools exe exists."
+            exit 1
+          }
+        }
+
+        $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup'
+        $localExePath = "$localDir\XmlTranslator.exe"
+        $patchedProjs = 0
+        Get-ChildItem -Path "$wixSetupDir\_UFT" -Filter '*.wixproj' -Recurse | ForEach-Object {
+          $content = [IO.File]::ReadAllText($_.FullName, [Text.Encoding]::UTF8)
+          if ($content -match 'XmlTranslator\.exe') {
+            $matches2 = [regex]::Matches($content, '([^"<>\s]*resources\\Binaries\\Tools\\XmlTranslator\.exe)')
+            foreach ($m in $matches2) {
+              $oldPath = $m.Groups[1].Value
+              $content = $content.Replace($oldPath, $localExePath)
+              Write-Host "  Replaced: $oldPath -> $localExePath"
+            }
+            $content = [regex]::Replace($content, '(<Exec\s+Command="[^"]*XmlTranslator[^"]*")\s*(/?>)', '$1 Timeout="600000" $2')
+            [IO.File]::WriteAllText($_.FullName, $content, [Text.Encoding]::UTF8)
+            Write-Host "  Patched wixproj: $($_.Name) (path + timeout)"
+            $patchedProjs++
+          }
+        }
+        Write-Host "Patched $patchedProjs .wixproj files to use local XmlTranslator path: $localExePath"
+        Write-Host "XmlTranslator fix complete"
+    - |
+        # WiX tools: move the full Wix root off U:, patch project imports to the
+        # local bin/msbuild/sdk paths, and wrap MakeSfxCA so cab packaging runs
+        # on local disk before copying the final CA dll back to the workspace.
+        $wixNasRoot = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\Resources\Binaries\Wix'
+        $wixNasBin = Join-Path $wixNasRoot 'bin'
+        $wixNasMsbuild = Join-Path $wixNasRoot 'msbuild'
+        $wixNasSdk = Join-Path $wixNasRoot 'SDK'
+        $wixLocalRoot = "$env:TEMP\WixLocal"
+        $wixLocalBin = Join-Path $wixLocalRoot 'bin'
+        $wixLocalMsbuild = Join-Path $wixLocalRoot 'msbuild'
+        $wixLocalSdk = Join-Path $wixLocalRoot 'SDK'
+        if (Test-Path $wixNasRoot) {
+          if (Test-Path $wixLocalRoot) {
+            Remove-Item $wixLocalRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $wixLocalRoot -Force | Out-Null
+          Copy-Item (Join-Path $wixNasRoot '*') $wixLocalRoot -Recurse -Force
+          Write-Host "Copied WiX root to local: $wixLocalRoot"
+
+          $wrapperPs1 = Join-Path $wixLocalSdk 'MakeSfxCA.local.ps1'
+          $wrapperCmd = Join-Path $wixLocalSdk 'MakeSfxCA.local.cmd'
+            $wrapperPs1Content = @(
+              'param(',
+              '  [Parameter(ValueFromRemainingArguments = $true)]',
+              '  [string[]] $Args',
+              ')',
+              '',
+              'if ($Args.Count -lt 4) {',
+              '  Write-Error "MakeSfxCA wrapper expected at least 4 arguments, got $($Args.Count)"',
+              '  exit 1',
+              '}',
+              '',
+              '$outputPath = $Args[0]',
+              '$sfxDllPath = $Args[1]',
+              '$mainInputPath = $Args[2]',
+              '$otherInputSpec = if ($Args.Count -gt 3) { [string]::Join('' '', $Args[3..($Args.Count - 1)]) } else { '''' }',
+              '$localRoot = Join-Path $env:TEMP ("MakeSfxCA_" + [Guid]::NewGuid().ToString("N"))',
+              'New-Item -ItemType Directory -Path $localRoot -Force | Out-Null',
+              '',
+              'function Copy-InputFile {',
+              '  param(',
+              '    [string] $SourcePath,',
+              '    [string] $DestinationRoot',
+              '  )',
+              '',
+              '  $fileName = [IO.Path]::GetFileName($SourcePath)',
+              '  $destinationPath = Join-Path $DestinationRoot $fileName',
+              '  Copy-Item $SourcePath $destinationPath -Force',
+              '  return $destinationPath',
+              '}',
+              '',
+              'try {',
+              '  $localOutputPath = Join-Path $localRoot ([IO.Path]::GetFileName($outputPath))',
+              '  $localSfxDllPath = Copy-InputFile -SourcePath $sfxDllPath -DestinationRoot $localRoot',
+              '  $localMainInputPath = Copy-InputFile -SourcePath $mainInputPath -DestinationRoot $localRoot',
+              '  $localOtherInputs = @()',
+              '  foreach ($inputPath in ($otherInputSpec -split '';'')) {',
+              '    if (-not [string]::IsNullOrWhiteSpace($inputPath)) {',
+              '      $localOtherInputs += (Copy-InputFile -SourcePath $inputPath -DestinationRoot $localRoot)',
+              '    }',
+              '  }',
+              '  $localOtherInputSpec = [string]::Join('';'', $localOtherInputs)',
+              '  & (Join-Path $PSScriptRoot ''MakeSfxCA.exe'') $localOutputPath $localSfxDllPath $localMainInputPath $localOtherInputSpec',
+              '  $wrappedExitCode = $LASTEXITCODE',
+              '  if ($wrappedExitCode -ne 0) {',
+              '    exit $wrappedExitCode',
+              '  }',
+              '',
+              '  $outputDir = Split-Path -Parent $outputPath',
+              '  if (-not (Test-Path $outputDir)) {',
+              '    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null',
+              '  }',
+              '  Copy-Item $localOutputPath $outputPath -Force',
+              '} finally {',
+              '  if (Test-Path $localRoot) {',
+              '    Remove-Item $localRoot -Recurse -Force -ErrorAction SilentlyContinue',
+              '  }',
+              '}'
+            ) -join "`r`n"
+          Set-Content -Path $wrapperPs1 -Value $wrapperPs1Content -Encoding UTF8 -NoNewline
+          @(
+            '@echo off',
+            'powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0MakeSfxCA.local.ps1" %*',
+            'exit /b %ERRORLEVEL%'
+          ) | Set-Content -Path $wrapperCmd -Encoding ASCII
+          Write-Host "Created local MakeSfxCA wrapper: $wrapperCmd"
+
+          foreach ($caTargetsPath in @(
+            (Join-Path $wixLocalMsbuild 'Wix.CA.targets'),
+            (Join-Path $wixLocalMsbuild 'wix.ca.targets'),
+            (Join-Path $wixLocalSdk 'wix.ca.targets')
+          )) {
+            if (Test-Path $caTargetsPath) {
+              $caTargetsContent = [IO.File]::ReadAllText($caTargetsPath, [Text.Encoding]::UTF8)
+              $patchedCaTargets = $caTargetsContent.Replace('MakeSfxCA.exe', 'MakeSfxCA.local.cmd')
+              if ($patchedCaTargets -ne $caTargetsContent) {
+                [IO.File]::WriteAllText($caTargetsPath, $patchedCaTargets, [Text.Encoding]::UTF8)
+                Write-Host "Patched local CA targets: $caTargetsPath"
+              }
+            }
+          }
+
+          $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup'
+          $patchedWixFiles = 0
+          Get-ChildItem -Path $wixSetupDir -Include *.wixproj,*.csproj,*.proj,*.targets,*.props -Recurse | ForEach-Object {
+            $content = [IO.File]::ReadAllText($_.FullName, [Text.Encoding]::UTF8)
+            $updated = $content
+            foreach ($pair in @(
+              @{ Old = '$(SolutionDir)Resources\Binaries\Wix\bin'; New = $wixLocalBin },
+              @{ Old = '$(SolutionDir)Resources\Binaries\Wix\msbuild'; New = $wixLocalMsbuild },
+              @{ Old = '$(SolutionDir)Resources\Binaries\Wix\SDK'; New = $wixLocalSdk },
+              @{ Old = '$(SolutionDir)Resources\Binaries\Wix\sdk'; New = $wixLocalSdk },
+              @{ Old = $wixNasBin; New = $wixLocalBin },
+              @{ Old = $wixNasMsbuild; New = $wixLocalMsbuild },
+              @{ Old = $wixNasSdk; New = $wixLocalSdk },
+              @{ Old = $wixNasRoot; New = $wixLocalRoot }
+            )) {
+              if ($updated.Contains($pair.Old)) {
+                $updated = $updated.Replace($pair.Old, $pair.New)
+              }
+            }
+            if ($updated -ne $content) {
+              [IO.File]::WriteAllText($_.FullName, $updated, [Text.Encoding]::UTF8)
+              $patchedWixFiles++
+            }
+          }
+
+          $env:WixToolPath = "$wixLocalBin\"
+          $env:WixSdkPath = "$wixLocalSdk\"
+          Write-Host "Set WixToolPath=$env:WixToolPath"
+          Write-Host "Set WixSdkPath=$env:WixSdkPath"
+          Write-Host "Patched $patchedWixFiles project files to use local WiX paths"
+        } else {
+          Write-Host "WARNING: WiX root not found at $wixNasRoot - skipping WiX localization"
+        }
+    - |
+      # Suppress WER crash dialogs (prevent headless runner hangs)
+      $env:COMPlus_DbgJITDebugLaunchSetting = '0'
+      $env:COMPlus_DbgManagedDebugger = ''
+      $env:DOTNET_DbgJITDebugLaunchSetting = '0'
+      try {
+        $werPaths = @(
+          'HKCU:\Software\Microsoft\Windows\Windows Error Reporting',
+          'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting'
+        )
+        foreach ($werPath in $werPaths) {
+          try {
+            if (-not (Test-Path $werPath)) { New-Item -Path $werPath -Force | Out-Null }
+            Set-ItemProperty -Path $werPath -Name 'DontShowUI' -Value 1 -Type DWord -Force
+            Set-ItemProperty -Path $werPath -Name 'Disabled' -Value 1 -Type DWord -Force
+            Write-Host "WER suppressed at: $werPath"
+          } catch {
+            Write-Host "WARNING: Could not set WER at $werPath : $($_.Exception.Message)"
+          }
+        }
+      } catch {
+        Write-Host "WARNING: WER suppression failed: $($_.Exception.Message)"
+      }
+      Write-Host "Crash dialog suppression configured"
+    - |
+      # ── Skip PYWIN32_pre-build.bat ─────────────────────────────────────────
+      # The EC2 runner does not have Python 3.10-3.14 (32-bit) installed.
+      # DEFERRED: see DEFERRED_FIXES.md.
+      $batPath = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup\make\PreInstallBuildActions\PYWIN32_pre-build.bat'
+      if (Test-Path $batPath) {
+        Copy-Item $batPath "$batPath.orig" -Force
+        @('@echo PYWIN32_pre-build SKIPPED (no Python 3.10-3.14 32-bit on runner)', '@exit /b 0') | Set-Content -Path $batPath -Encoding ASCII
+        Write-Host "Stubbed $batPath (original backed up to .orig)"
+      } else {
+        Write-Host "WARNING: $batPath not found — skipping stub"
+      }
+  needs:
+    # ── patched: points to wix bootstrap instead of UFT.Setup.Finalize ──────
+    - job: fast-resume-wix-bootstrap
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
+
+UFT.Create.Setups.Wix.CreatePFTW:
+  allow_failure: false
+  extends: .uft-msbuild-template
+  stage: setup-create-wix
+  variables:
+    MSBuildVersion: "2022"  # Wix CA projects require VS2022/Roslyn; AllSetup jobs stay on 2015
+    MSBProj: 'build\Wix_Setup.proj'
+    MSBTarget: "CreatePFTW"
+    JobName: "UFT.Create.Setups.Wix.CreatePFTW"
+    MSBProj_For_Consumption: 'build\Wix_Setup.proj'
+  needs:
+    - job: UFT.Create.Setups.Wix.BuildSetup
+      artifacts: false
+    - job: uft-build-compute-version
+      artifacts: true
+    - job: uft-build-env-setup
+      artifacts: true
