@@ -396,7 +396,20 @@ UFT.Create.Setups.Wix.BuildSetup:
           }
         }
 
-        $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup'
+        # Debug Workspace_Home and provide fallback to CI_PROJECT_DIR to avoid NotSupportedException
+        Write-Host "DEBUG: Workspace_Home (before fallback) = '$env:Workspace_Home'"
+        if (-not $env:Workspace_Home -or [string]::IsNullOrWhiteSpace($env:Workspace_Home)) {
+          if ($env:CI_PROJECT_DIR -and -not [string]::IsNullOrWhiteSpace($env:CI_PROJECT_DIR)) {
+            Write-Host "DEBUG: Workspace_Home empty — falling back to CI_PROJECT_DIR = '$env:CI_PROJECT_DIR'"
+            $env:Workspace_Home = $env:CI_PROJECT_DIR
+          } else {
+            Write-Host "DEBUG: Workspace_Home and CI_PROJECT_DIR are empty; using current directory as last resort"
+            $env:Workspace_Home = (Get-Location).Path
+          }
+        }
+        $env:Workspace_Home = $env:Workspace_Home -replace '/', '\\'
+        $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\\WixSetup'
+        Write-Host "DEBUG: wixSetupDir = '$wixSetupDir'"
         $localExePath = "$localDir\XmlTranslator.exe"
         $patchedProjs = 0
         Get-ChildItem -Path "$wixSetupDir\_UFT" -Filter '*.wixproj' -Recurse | ForEach-Object {
@@ -519,7 +532,20 @@ UFT.Create.Setups.Wix.BuildSetup:
             }
           }
 
-          $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\WixSetup'
+          # Debug Workspace_Home and provide fallback to CI_PROJECT_DIR to avoid NotSupportedException
+          Write-Host "DEBUG: Workspace_Home (before fallback) = '$env:Workspace_Home'"
+          if (-not $env:Workspace_Home -or [string]::IsNullOrWhiteSpace($env:Workspace_Home)) {
+            if ($env:CI_PROJECT_DIR -and -not [string]::IsNullOrWhiteSpace($env:CI_PROJECT_DIR)) {
+              Write-Host "DEBUG: Workspace_Home empty — falling back to CI_PROJECT_DIR = '$env:CI_PROJECT_DIR'"
+              $env:Workspace_Home = $env:CI_PROJECT_DIR
+            } else {
+              Write-Host "DEBUG: Workspace_Home and CI_PROJECT_DIR are empty; using current directory as last resort"
+              $env:Workspace_Home = (Get-Location).Path
+            }
+          }
+          $env:Workspace_Home = $env:Workspace_Home -replace '/', '\\'
+          $wixSetupDir = Join-Path $env:Workspace_Home 'SetupBuilder\\WixSetup'
+          Write-Host "DEBUG: wixSetupDir = '$wixSetupDir'"
           $patchedWixFiles = 0
           Get-ChildItem -Path $wixSetupDir -Include *.wixproj,*.csproj,*.proj,*.targets,*.props -Recurse | ForEach-Object {
             $content = [IO.File]::ReadAllText($_.FullName, [Text.Encoding]::UTF8)
